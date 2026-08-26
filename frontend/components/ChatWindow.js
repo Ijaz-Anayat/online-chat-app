@@ -13,12 +13,14 @@ export default function ChatWindow({
   currentUser,
   onSend,
   onDelete,
+  onClearChat,
   onBack,
   onOpenInfo,
   loading,
 }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -59,6 +61,24 @@ export default function ChatWindow({
     }
   };
 
+  const handleClearChat = async () => {
+    if (!onClearChat || clearing) return;
+    const label = chat.type === "group" ? "this group chat" : `chat with ${chat.name}`;
+    if (
+      !confirm(
+        `Clear all messages in ${label}?\n\nThis only hides them for you. Messages stay in the database.`
+      )
+    ) {
+      return;
+    }
+    setClearing(true);
+    try {
+      await onClearChat();
+    } finally {
+      setClearing(false);
+    }
+  };
+
   return (
     <div className="flex flex-col flex-1 h-full min-w-0 bg-sky-50/40 dark:bg-slate-900/60">
       {/* Chat header */}
@@ -84,11 +104,24 @@ export default function ChatWindow({
               : `@${chat.username || ""}`}
           </p>
         </div>
-        {chat.type === "group" && (
-          <button type="button" onClick={onOpenInfo} className="btn-ghost text-sm py-1.5">
-            Info
-          </button>
-        )}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {messages.length > 0 && (
+            <button
+              type="button"
+              onClick={handleClearChat}
+              disabled={clearing}
+              className="btn-ghost text-sm py-1.5 text-red-500 hover:text-red-600 dark:text-red-400 border-red-100 dark:border-red-900/50"
+              title="Clear all messages for you"
+            >
+              {clearing ? "…" : "Clear"}
+            </button>
+          )}
+          {chat.type === "group" && (
+            <button type="button" onClick={onOpenInfo} className="btn-ghost text-sm py-1.5">
+              Info
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Messages */}

@@ -206,6 +206,35 @@ export default function ChatPage() {
     }
   };
 
+  const handleClearChat = async () => {
+    if (!activeChat) return;
+    try {
+      await messagesApi.clearChat(activeChat._id, activeChat.type);
+      setMessages([]);
+      // Clear last-message preview in sidebar for this chat
+      if (activeChat.type === "group") {
+        setGroups((prev) =>
+          prev.map((g) =>
+            String(g._id) === String(activeChat._id)
+              ? { ...g, lastMessage: null, unreadCount: 0 }
+              : g
+          )
+        );
+      } else {
+        setContacts((prev) =>
+          prev.map((c) =>
+            String(c._id) === String(activeChat._id)
+              ? { ...c, lastMessage: null, unreadCount: 0 }
+              : c
+          )
+        );
+      }
+    } catch (err) {
+      console.error(err);
+      alert(err.message || "Failed to clear chat");
+    }
+  };
+
   const handleLogout = async () => {
     await logout();
     router.replace("/login");
@@ -304,6 +333,7 @@ export default function ChatPage() {
           currentUser={user}
           onSend={handleSend}
           onDelete={handleDelete}
+          onClearChat={handleClearChat}
           onBack={() => {
             setShowChatMobile(false);
             setPanel(null);

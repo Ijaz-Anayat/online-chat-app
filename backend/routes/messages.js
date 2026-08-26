@@ -112,6 +112,49 @@ router.post("/send", protect, async (req, res) => {
 });
 
 /**
+ * POST /api/messages/clear
+ * Soft-clear entire chat for current user (deletedFor + isDeleted).
+ */
+router.post("/clear", protect, async (req, res) => {
+  try {
+    const { chatId, type } = req.body;
+    if (!chatId) {
+      return res.status(400).json({ message: "chatId is required." });
+    }
+
+    const userId = req.user._id;
+    let filter;
+
+    if (type === "group") {
+      const group = await Group.findById(chatId);
+      if (!group) return res.status(404).json({ message: "Group not found." });
+      const isMember = group.members.some((m) => m.toString() === userId.toString());
+      if (!isMember) return res.status(403).json({ message: "Not a group member." });
+      filter = { groupId: chatId, deletedFor: { $ne: userId } };
+    } else {
+      filter = {
+        groupId: null,
+        deletedFor: { $ne: userId },
+        $or: [
+          { senderId: userId, receiverId: chatId },
+          { senderId: chatId, receiverId: userId },
+        ],
+      };
+    }
+
+    const result = await Message.updateMany(filter, {
+      $addToSet: { deletedFor: userId },
+      $set: { isDeleted: true },
+    });
+
+    res.json({ message: "Chat cleared for you.", modifiedCount: result.modifiedCount });
+  } catch (error) {
+    console.error("Clear chat error:", error);
+    res.status(500).json({ message: "Failed to clear chat." });
+  }
+});
+
+/**
  * PATCH /api/messages/:id/delete
  * Soft delete — keeps the MongoDB document.
  * Sets isDeleted: true and adds userId to deletedFor.
