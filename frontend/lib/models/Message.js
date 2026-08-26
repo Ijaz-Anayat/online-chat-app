@@ -7,6 +7,8 @@ const messageSchema = new mongoose.Schema(
     groupId: { type: mongoose.Schema.Types.ObjectId, ref: "Group", default: null },
     content: { type: String, required: true, trim: true },
     status: { type: String, enum: ["sent", "delivered", "read"], default: "sent" },
+    // Users who have seen this message (sender is added on create)
+    readBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     isDeleted: { type: Boolean, default: false },
     deletedFor: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   },

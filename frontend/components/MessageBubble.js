@@ -40,6 +40,11 @@ export default function MessageBubble({ message, isMine, onDelete }) {
             }`}
           >
             <span>{time}</span>
+            {isMine && !deleted && (
+              <span title={message.status === "read" ? "Read" : "Sent"} className="tracking-tighter">
+                {message.status === "read" ? "✓✓" : "✓"}
+              </span>
+            )}
           </div>
         </div>
 

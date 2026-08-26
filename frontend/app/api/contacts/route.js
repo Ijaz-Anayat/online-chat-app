@@ -10,7 +10,8 @@ export async function GET() {
 
   try {
     await connectDB();
-    const contacts = await Contact.find({ userId: auth.user._id })
+    const userId = auth.user._id;
+    const contacts = await Contact.find({ userId })
       .populate("contactId", "name username email avatar")
       .sort({ updatedAt: -1 });
 
@@ -21,14 +22,23 @@ export async function GET() {
 
         const lastMessage = await Message.findOne({
           groupId: null,
-          deletedFor: { $ne: auth.user._id },
+          deletedFor: { $ne: userId },
           $or: [
-            { senderId: auth.user._id, receiverId: other._id },
-            { senderId: other._id, receiverId: auth.user._id },
+            { senderId: userId, receiverId: other._id },
+            { senderId: other._id, receiverId: userId },
           ],
         })
           .sort({ createdAt: -1 })
           .lean();
+
+        // Unread = messages from the other user that I have not read
+        const unreadCount = await Message.countDocuments({
+          groupId: null,
+          senderId: other._id,
+          receiverId: userId,
+          deletedFor: { $ne: userId },
+          readBy: { $ne: userId },
+        });
 
         return {
           _id: other._id,
@@ -37,12 +47,14 @@ export async function GET() {
           email: other.email,
           avatar: other.avatar,
           type: "dm",
+          unreadCount,
           lastMessage: lastMessage
             ? {
                 content: lastMessage.isDeleted ? "This message was deleted" : lastMessage.content,
                 createdAt: lastMessage.createdAt,
                 senderId: lastMessage.senderId,
                 isDeleted: lastMessage.isDeleted,
+                status: lastMessage.status,
               }
             : null,
         };

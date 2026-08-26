@@ -10,7 +10,8 @@ export async function GET() {
 
   try {
     await connectDB();
-    const groups = await Group.find({ members: auth.user._id })
+    const userId = auth.user._id;
+    const groups = await Group.find({ members: userId })
       .populate("members", "name username email avatar")
       .populate("admin", "name username email avatar")
       .sort({ updatedAt: -1 });
@@ -19,10 +20,17 @@ export async function GET() {
       groups.map(async (g) => {
         const lastMessage = await Message.findOne({
           groupId: g._id,
-          deletedFor: { $ne: auth.user._id },
+          deletedFor: { $ne: userId },
         })
           .sort({ createdAt: -1 })
           .lean();
+
+        const unreadCount = await Message.countDocuments({
+          groupId: g._id,
+          senderId: { $ne: userId },
+          deletedFor: { $ne: userId },
+          readBy: { $ne: userId },
+        });
 
         return {
           _id: g._id,
@@ -31,12 +39,14 @@ export async function GET() {
           members: g.members,
           admin: g.admin,
           type: "group",
+          unreadCount,
           lastMessage: lastMessage
             ? {
                 content: lastMessage.isDeleted ? "This message was deleted" : lastMessage.content,
                 createdAt: lastMessage.createdAt,
                 senderId: lastMessage.senderId,
                 isDeleted: lastMessage.isDeleted,
+                status: lastMessage.status,
               }
             : null,
         };

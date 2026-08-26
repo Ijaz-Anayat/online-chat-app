@@ -67,4 +67,9 @@ export const messagesApi = {
     api(`/api/messages/${chatId}?type=${type === "group" ? "group" : "dm"}`),
   send: (body) => api("/api/messages/send", { method: "POST", body: JSON.stringify(body) }),
   softDelete: (id) => api(`/api/messages/${id}/delete`, { method: "PATCH" }),
+  markRead: (chatId, type = "dm") =>
+    api("/api/messages/read", {
+      method: "POST",
+      body: JSON.stringify({ chatId, type: type === "group" ? "group" : "dm" }),
+    }),
 };

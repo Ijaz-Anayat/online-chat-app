@@ -29,6 +29,13 @@ const messageSchema = new mongoose.Schema(
       enum: ["sent", "delivered", "read"],
       default: "sent",
     },
+    // Users who have seen this message
+    readBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
     // Soft delete: keep the document forever for audit purposes
     isDeleted: {
       type: Boolean,

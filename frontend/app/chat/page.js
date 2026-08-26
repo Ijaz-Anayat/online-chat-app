@@ -37,14 +37,37 @@ export default function ChatPage() {
   const loadLists = useCallback(async () => {
     try {
       const [cData, gData] = await Promise.all([contactsApi.list(), groupsApi.list()]);
-      setContacts(cData.contacts || []);
-      setGroups(gData.groups || []);
+      setContacts((prev) => {
+        const list = cData.contacts || [];
+        // Keep active DM unread cleared while chat is open
+        return list.map((c) => {
+          if (
+            activeChat?.type === "dm" &&
+            String(activeChat._id) === String(c._id)
+          ) {
+            return { ...c, unreadCount: 0 };
+          }
+          return c;
+        });
+      });
+      setGroups((prev) => {
+        const list = gData.groups || [];
+        return list.map((g) => {
+          if (
+            activeChat?.type === "group" &&
+            String(activeChat._id) === String(g._id)
+          ) {
+            return { ...g, unreadCount: 0 };
+          }
+          return g;
+        });
+      });
     } catch (err) {
       console.error("Failed to load chats:", err);
     } finally {
       setListLoading(false);
     }
-  }, []);
+  }, [activeChat?._id, activeChat?.type]);
 
   const loadMessages = useCallback(async (chat, silent = false) => {
     if (!chat) return;
@@ -57,6 +80,32 @@ export default function ChatPage() {
       if (!silent) setMessages([]);
     } finally {
       if (!silent) setMessagesLoading(false);
+    }
+  }, []);
+
+  const markChatAsRead = useCallback(async (chat) => {
+    if (!chat) return;
+    try {
+      await messagesApi.markRead(chat._id, chat.type);
+      if (chat.type === "group") {
+        setGroups((prev) =>
+          prev.map((g) =>
+            String(g._id) === String(chat._id) && g.unreadCount
+              ? { ...g, unreadCount: 0 }
+              : g
+          )
+        );
+      } else {
+        setContacts((prev) =>
+          prev.map((c) =>
+            String(c._id) === String(chat._id) && c.unreadCount
+              ? { ...c, unreadCount: 0 }
+              : c
+          )
+        );
+      }
+    } catch (err) {
+      console.error("Mark read failed:", err);
     }
   }, []);
 
@@ -81,22 +130,41 @@ export default function ChatPage() {
     return merged;
   }, [contacts, groups]);
 
-  // Load + poll messages for active chat
+  // Load + poll messages for active chat; mark as read when opened
   useEffect(() => {
     if (!activeChat) {
       setMessages([]);
       return;
     }
 
-    loadMessages(activeChat);
-    const id = setInterval(() => loadMessages(activeChat, true), POLL_MESSAGES_MS);
+    const chat = activeChat;
+    loadMessages(chat);
+    markChatAsRead(chat);
+
+    const id = setInterval(() => {
+      loadMessages(chat, true);
+      markChatAsRead(chat);
+    }, POLL_MESSAGES_MS);
+
     return () => clearInterval(id);
-  }, [activeChat, loadMessages]);
+    // Only re-run when switching chats (id/type), not on unreadCount updates
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeChat?._id, activeChat?.type, loadMessages, markChatAsRead]);
 
   const handleSelectChat = (chat) => {
     setActiveChat(chat);
     setPanel(null);
     setShowChatMobile(true);
+    // Optimistic: hide red dot immediately
+    if (chat.type === "group") {
+      setGroups((prev) =>
+        prev.map((g) => (String(g._id) === String(chat._id) ? { ...g, unreadCount: 0 } : g))
+      );
+    } else {
+      setContacts((prev) =>
+        prev.map((c) => (String(c._id) === String(chat._id) ? { ...c, unreadCount: 0 } : c))
+      );
+    }
   };
 
   const handleSend = async (content) => {

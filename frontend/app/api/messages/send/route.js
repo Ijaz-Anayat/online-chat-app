@@ -32,6 +32,7 @@ export async function POST(request) {
       groupId: groupId || null,
       content: content.trim(),
       status: "sent",
+      readBy: [auth.user._id], // sender has already "seen" their own message
     });
 
     message = await message.populate("senderId", "name username avatar");
