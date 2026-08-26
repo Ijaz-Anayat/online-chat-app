@@ -49,9 +49,24 @@ Open http://localhost:3000
 3. Add environment variables:
    - `MONGODB_URI` — your Atlas connection string
    - `JWT_SECRET` — long random secret string
+   - `NEXT_PUBLIC_VAPID_PUBLIC_KEY` — web push public key
+   - `VAPID_PRIVATE_KEY` — web push private key
+   - `VAPID_SUBJECT` — e.g. `mailto:you@example.com`
 4. Deploy
 
 No Render/Railway needed for the current setup.
+
+## Chrome push notifications
+
+1. Open SkyChat in Chrome (HTTPS / localhost)
+2. Sidebar mein 🔔 button dabao → Allow
+3. Jab koi message aaye aur chat open na ho, Chrome notification aayegi
+
+Generate new VAPID keys anytime:
+```bash
+cd frontend
+node -e "console.log(JSON.stringify(require('web-push').generateVAPIDKeys()))"
+```
 
 ## Features
 

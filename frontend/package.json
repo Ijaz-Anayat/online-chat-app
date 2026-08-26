@@ -14,7 +14,8 @@
     "mongoose": "^8.9.3",
     "next": "14.2.35",
     "react": "^18",
-    "react-dom": "^18"
+    "react-dom": "^18",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "eslint": "^8",

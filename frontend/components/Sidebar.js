@@ -2,6 +2,7 @@
 
 import Avatar, { formatTime } from "./Avatar";
 import ThemeToggle from "./ThemeToggle";
+import NotificationToggle from "./NotificationToggle";
 
 /**
  * Left sidebar — chat list (contacts + groups) with search filter
@@ -46,6 +47,7 @@ export default function Sidebar({
             </div>
           </div>
           <div className="flex items-center gap-1.5">
+            <NotificationToggle />
             <ThemeToggle />
             <button
               type="button"
