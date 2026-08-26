@@ -113,8 +113,8 @@ router.post("/send", protect, async (req, res) => {
 
 /**
  * PATCH /api/messages/:id/delete
- * Soft delete — "Delete for me"
- * Adds userId to deletedFor array; does NOT remove the MongoDB document.
+ * Soft delete — keeps the MongoDB document.
+ * Sets isDeleted: true and adds userId to deletedFor.
  */
 router.patch("/:id/delete", protect, async (req, res) => {
   try {
@@ -124,26 +124,31 @@ router.patch("/:id/delete", protect, async (req, res) => {
       return res.status(404).json({ message: "Message not found." });
     }
 
+    message.isDeleted = true;
+
     const alreadyHidden = message.deletedFor.some(
       (id) => id.toString() === req.user._id.toString()
     );
-
     if (!alreadyHidden) {
       message.deletedFor.push(req.user._id);
-      // Also flip isDeleted if the sender deletes their own message (optional UX)
-      // Keep isDeleted for "deleted for everyone" style — here we only do "for me"
-      await message.save();
     }
+
+    await message.save();
 
     const io = req.app.get("io");
     if (io) {
       io.to(req.user._id.toString()).emit("message_deleted", {
         messageId: message._id,
         deletedFor: req.user._id,
+        isDeleted: true,
       });
     }
 
-    res.json({ message: "Message deleted for you.", messageId: message._id });
+    res.json({
+      message: "Message deleted for you.",
+      messageId: message._id,
+      isDeleted: true,
+    });
   } catch (error) {
     console.error("Delete message error:", error);
     res.status(500).json({ message: "Failed to delete message." });

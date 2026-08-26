@@ -190,7 +190,9 @@ export default function ChatPage() {
       await messagesApi.softDelete(messageId);
       setMessages((prev) =>
         prev.map((m) =>
-          m._id === messageId ? { ...m, _deletedForMe: true, content: "" } : m
+          m._id === messageId
+            ? { ...m, isDeleted: true, _deletedForMe: true, content: "" }
+            : m
         )
       );
     } catch (err) {

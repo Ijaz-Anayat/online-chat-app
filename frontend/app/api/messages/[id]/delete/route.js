@@ -3,6 +3,11 @@ import { connectDB } from "@/lib/db";
 import Message from "@/lib/models/Message";
 import { requireAuth } from "@/lib/auth";
 
+/**
+ * PATCH /api/messages/:id/delete
+ * Soft delete — keeps the MongoDB document.
+ * Sets isDeleted: true and adds user to deletedFor ("delete for me").
+ */
 export async function PATCH(request, { params }) {
   const auth = await requireAuth();
   if (auth.error) return auth.error;
@@ -15,16 +20,23 @@ export async function PATCH(request, { params }) {
       return NextResponse.json({ message: "Message not found." }, { status: 404 });
     }
 
+    // Soft-delete flag for audit / UI placeholder
+    message.isDeleted = true;
+
     const alreadyHidden = message.deletedFor.some(
       (id) => id.toString() === auth.user._id.toString()
     );
-
     if (!alreadyHidden) {
       message.deletedFor.push(auth.user._id);
-      await message.save();
     }
 
-    return NextResponse.json({ message: "Message deleted for you.", messageId: message._id });
+    await message.save();
+
+    return NextResponse.json({
+      message: "Message deleted for you.",
+      messageId: message._id,
+      isDeleted: true,
+    });
   } catch (error) {
     console.error("Delete message error:", error);
     return NextResponse.json({ message: "Failed to delete message." }, { status: 500 });
