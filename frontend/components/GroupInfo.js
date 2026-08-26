@@ -14,6 +14,8 @@ export default function GroupInfo({ groupId, currentUser, onUpdated, onLeft, onC
   const [search, setSearch] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -101,6 +103,42 @@ export default function GroupInfo({ groupId, currentUser, onUpdated, onLeft, onC
     }
   };
 
+  const startEditName = () => {
+    setNameDraft(group?.name || "");
+    setEditingName(true);
+    setError("");
+  };
+
+  const cancelEditName = () => {
+    setEditingName(false);
+    setNameDraft("");
+  };
+
+  const handleSaveName = async () => {
+    const trimmed = nameDraft.trim();
+    if (!trimmed) {
+      setError("Group name is required");
+      return;
+    }
+    if (trimmed === group.name) {
+      setEditingName(false);
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+    try {
+      const data = await groupsApi.update(groupId, { name: trimmed });
+      setGroup(data.group);
+      onUpdated?.(data.group);
+      setEditingName(false);
+    } catch (err) {
+      setError(err.message || "Failed to update group name");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -133,11 +171,66 @@ export default function GroupInfo({ groupId, currentUser, onUpdated, onLeft, onC
 
       <div className="p-6 text-center border-b border-sky-50 dark:border-slate-700">
         <Avatar name={group.name} image={group.image} size="lg" />
-        <h3 className="mt-3 text-xl font-bold text-slate-800 dark:text-slate-100">{group.name}</h3>
-        <p className="text-sm text-slate-500 dark:text-slate-400">{group.members?.length || 0} members</p>
-        <p className="text-xs text-sky-600 dark:text-sky-400 mt-1">
-          Admin: {group.admin?.name || "—"}
-        </p>
+
+        {editingName ? (
+          <div className="mt-3 space-y-2 text-left">
+            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400">
+              Group name
+            </label>
+            <input
+              className="input-field"
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              maxLength={60}
+              autoFocus
+              disabled={busy}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSaveName();
+                if (e.key === "Escape") cancelEditName();
+              }}
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="btn-primary flex-1 text-sm py-2"
+                disabled={busy}
+                onClick={handleSaveName}
+              >
+                {busy ? "Saving…" : "Save"}
+              </button>
+              <button
+                type="button"
+                className="btn-ghost flex-1 text-sm py-2"
+                disabled={busy}
+                onClick={cancelEditName}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-3">
+            <div className="flex items-center justify-center gap-2">
+              <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">{group.name}</h3>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={startEditName}
+                  className="text-xs text-sky-600 dark:text-sky-400 hover:underline font-medium"
+                  title="Edit group name"
+                >
+                  Edit
+                </button>
+              )}
+            </div>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {group.members?.length || 0} members
+            </p>
+            <p className="text-xs text-sky-600 dark:text-sky-400 mt-1">
+              Admin: {group.admin?.name || "—"}
+            </p>
+          </div>
+        )}
       </div>
 
       {error && (

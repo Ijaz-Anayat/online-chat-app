@@ -117,6 +117,57 @@ router.get("/:id", protect, async (req, res) => {
 });
 
 /**
+ * PATCH /api/groups/:id
+ * Admin-only: update group name / image
+ */
+router.patch("/:id", protect, async (req, res) => {
+  try {
+    const group = await Group.findById(req.params.id);
+
+    if (!group) {
+      return res.status(404).json({ message: "Group not found." });
+    }
+
+    if (group.admin.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Only the admin can edit the group." });
+    }
+
+    const { name, image } = req.body;
+
+    if (name !== undefined) {
+      const trimmed = String(name || "").trim();
+      if (!trimmed) {
+        return res.status(400).json({ message: "Group name is required." });
+      }
+      if (trimmed.length > 60) {
+        return res.status(400).json({ message: "Group name is too long (max 60)." });
+      }
+      group.name = trimmed;
+    }
+
+    if (image !== undefined) {
+      group.image = String(image || "").trim();
+    }
+
+    await group.save();
+
+    const populated = await Group.findById(group._id)
+      .populate("members", "name username email avatar")
+      .populate("admin", "name username email avatar");
+
+    const io = req.app.get("io");
+    if (io) {
+      io.to(`group_${group._id}`).emit("group_updated", { group: populated });
+    }
+
+    res.json({ message: "Group updated.", group: populated });
+  } catch (error) {
+    console.error("Update group error:", error);
+    res.status(500).json({ message: "Failed to update group." });
+  }
+});
+
+/**
  * POST /api/groups/:id/add-member
  * Admin-only: add a member
  */

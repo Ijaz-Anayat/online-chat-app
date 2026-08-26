@@ -253,7 +253,14 @@ export default function ChatPage() {
             <GroupInfo
               groupId={activeChat._id}
               currentUser={user}
-              onUpdated={(g) => setActiveChat((prev) => ({ ...prev, ...g, type: "group" }))}
+              onUpdated={(g) => {
+                setActiveChat((prev) => ({ ...prev, ...g, type: "group" }));
+                setGroups((prev) =>
+                  prev.map((x) =>
+                    String(x._id) === String(g._id) ? { ...x, ...g, type: "group" } : x
+                  )
+                );
+              }}
               onLeft={(id) => {
                 setGroups((prev) => prev.filter((g) => String(g._id) !== String(id)));
                 setActiveChat(null);

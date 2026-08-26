@@ -49,6 +49,8 @@ export const groupsApi = {
   list: () => api("/api/groups"),
   get: (id) => api(`/api/groups/${id}`),
   create: (body) => api("/api/groups/create", { method: "POST", body: JSON.stringify(body) }),
+  update: (id, body) =>
+    api(`/api/groups/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   addMember: (id, memberId) =>
     api(`/api/groups/${id}/add-member`, {
       method: "POST",
