@@ -4,6 +4,10 @@ import "./globals.css";
 export const metadata = {
   title: "SkyChat — Real-time Messaging",
   description: "Full-stack real-time chat with friends and groups",
+  icons: {
+    icon: [{ url: "/favicon.png", type: "image/png" }],
+    apple: [{ url: "/apple-icon.png", type: "image/png" }],
+  },
 };
 
 export default function RootLayout({ children }) {
