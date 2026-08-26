@@ -137,15 +137,40 @@ function hasAny(text, words) {
   return words.some((w) => text.includes(w));
 }
 
+/** Normalize Roman Urdu typos so keyword matching actually hits. */
+function normalizeRomanUrdu(input) {
+  return String(input || "")
+    .toLowerCase()
+    .replace(/[؟]+/g, "?")
+    .replace(/\bmeira\b/g, "mera")
+    .replace(/\bmeri\b/g, "meri")
+    .replace(/\bni\b/g, "nahi")
+    .replace(/\bnhi\b/g, "nahi")
+    .replace(/\bnahin\b/g, "nahi")
+    .replace(/\bnai\b/g, "nahi")
+    .replace(/\ba raha\b/g, "aa raha")
+    .replace(/\ba rhe\b/g, "aa rahe")
+    .replace(/\ba rhi\b/g, "aa rahi")
+    .replace(/\bkr\b/g, "kar")
+    .replace(/\bkya\b/g, "kya")
+    .replace(/\bkyu\b/g, "kyun")
+    .replace(/\bkyun\b/g, "kyun")
+    .replace(/\bkese\b/g, "kaise")
+    .replace(/\bkaisay\b/g, "kaise")
+    .replace(/\bplz\b/g, "please")
+    .replace(/\bpls\b/g, "please")
+    .replace(/\bwifi\b/g, "wifi")
+    .replace(/\bwi-fi\b/g, "wifi")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /**
  * Useful + bakchod local replies (works without any API key).
  */
 function localContextualReply(userMessage, userName = "bhai") {
   const raw = String(userMessage || "").trim();
-  const text = raw
-    .toLowerCase()
-    .replace(/[؟?]+/g, "?")
-    .replace(/\s+/g, " ");
+  const text = normalizeRomanUrdu(raw);
   const name = firstName(userName);
 
   // --- Internet / WiFi / network (CHECK BEFORE generic "?") ---
@@ -153,26 +178,23 @@ function localContextualReply(userMessage, userName = "bhai") {
     hasAny(text, [
       "internet",
       "wifi",
-      "wi-fi",
       "net ",
       " net",
       "network",
       "router",
       "signal",
-      "data",
       "4g",
       "5g",
       "slow net",
       "net nahi",
-      "net ni",
-      "net nahin",
       "internet nahi",
-      "internet ni",
-      "internet nahin",
-      "internet ni a",
-      "net ni a",
+      "net aa nahi",
+      "internet aa nahi",
+      "package khatam",
+      "no signal",
     ]) ||
-    /internet|wifi|router/.test(text)
+    /\b(internet|wifi|router|net)\b/.test(text) ||
+    /net\s+nahi|internet\s+nahi|wifi\s+nahi/.test(text)
   ) {
     return `${name}, internet issue? Chaudhry IT desk on 🛠️
 1) Phone pe Airplane mode 10 sec on/off karo
@@ -184,7 +206,21 @@ Ab try karo — net aaya to treat Chaudhry ko biryani manzoor 😎`;
 
   // Fear / scared / nervous
   if (
-    hasAny(text, ["dar ", "dar gya", "dar gaya", "darr", "scared", "fear", "nervous", "tension", "ghabra", "worry", "worried"]) ||
+    hasAny(text, [
+      "dar ",
+      "dar gya",
+      "dar gaya",
+      "darr",
+      "scared",
+      "fear",
+      "nervous",
+      "tension",
+      "ghabra",
+      "worry",
+      "worried",
+      "darlag",
+    ]) ||
+    /\bdar\b|\bdarr\b/.test(text) ||
     /dar\s*gya|dar\s*gaya|main\s*dar/.test(text)
   ) {
     return `${name}, darna natural hai — hero bhi pehle darte hain 💪
@@ -307,16 +343,32 @@ Phir aana — net, dil, code, sab handle hai 🌙`;
 Jitna clear sawal, utna seedha Chaudhry jawab. Example: "internet nahi chal raha" ya "exam tension".`;
   }
 
+  // Question-ish / problem-ish generic — answer with steps, not random roast
+  if (
+    text.includes("?") ||
+    hasAny(text, ["kya", "kyun", "kaise", "kab", "kahan", "mera", "meri", "nahi", "problem", "issue", "help", "please"])
+  ) {
+    return `${name}, seedha scene:
+Tumhari baat: "${raw.slice(0, 100)}${raw.length > 100 ? "…" : ""}"
+
+Abhi ye karo:
+1) Problem 1 line mein clear likho (example: "wifi connect hai lekin net nahi")
+2) Kab se start hua + kya try kiya
+3) Exact error / screenshot detail agar ho
+
+Main usi pe numbered steps dunga. Half info pe half bakchodi — full info pe full fix 😎`;
+  }
+
   // Generic fallback — still try to be useful, not random roast
-  return `${name}, samajhne ki koshish:
+  return `${name}, sun liya:
 "${raw.slice(0, 90)}${raw.length > 90 ? "…" : ""}"
 
-Thora clear likho kya chahiye:
-• Problem fix? (net / code / study)
-• Advice?
+Batao clear goal:
+• Problem fix? (net / code / study / mood)
+• Advice chahiye?
 • Sirf baat / bakchodi?
 
-Main usi pe seedha jawab + halki bakchodi dunga — random philosophy nahi 😎`;
+Jitna clear sawal, utna seedha Chaudhry jawab 🫡`;
 }
 
 async function getRecentChatContext(userId, botId, limit = 8) {
@@ -338,54 +390,120 @@ async function getRecentChatContext(userId, botId, limit = 8) {
   }));
 }
 
+function buildUserTurn(userName, text) {
+  return `User name: ${userName}\nUnka message (SEEDHA useful jawab pehle, phir max 1 line bakchodi):\n${text}`;
+}
+
+async function replyWithGroq(text, userName, history) {
+  const key = process.env.GROQ_API_KEY?.trim();
+  if (!key) return null;
+
+  const messages = [
+    { role: "system", content: SYSTEM_PROMPT },
+    ...history.filter((m) => m.content && m.content !== "[deleted]").slice(-8),
+    { role: "user", content: buildUserTurn(userName, text) },
+  ];
+
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: process.env.GROQ_MODEL || "llama-3.1-8b-instant",
+      temperature: 0.65,
+      max_tokens: 320,
+      messages,
+    }),
+  });
+
+  if (!res.ok) {
+    console.error("Groq error:", res.status, await res.text());
+    return null;
+  }
+
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content?.trim() || null;
+}
+
+async function replyWithGemini(text, userName, history) {
+  const key =
+    process.env.GEMINI_API_KEY?.trim() ||
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
+  if (!key) return null;
+
+  const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+  const contents = [];
+
+  for (const m of history.filter((h) => h.content && h.content !== "[deleted]").slice(-8)) {
+    contents.push({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }],
+    });
+  }
+  contents.push({ role: "user", parts: [{ text: buildUserTurn(userName, text) }] });
+
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+        contents,
+        generationConfig: {
+          temperature: 0.65,
+          maxOutputTokens: 320,
+        },
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    console.error("Gemini error:", res.status, await res.text());
+    return null;
+  }
+
+  const data = await res.json();
+  const reply = data.candidates?.[0]?.content?.parts?.map((p) => p.text).join("").trim();
+  return reply || null;
+}
+
 /**
- * Generate reply — Groq if key set, else smart local answers.
+ * Generate reply — Groq / Gemini if key set, else smart local answers.
  */
 export async function generateChaudhryReply(userMessage, userName = "bhai", opts = {}) {
   const text = String(userMessage || "").trim();
-  const key = process.env.GROQ_API_KEY;
-
-  if (!key) {
-    return localContextualReply(text, userName);
+  // Message is saved before reply — drop trailing duplicate of this turn
+  let history = opts.history || [];
+  if (history.length) {
+    const last = history[history.length - 1];
+    if (last.role === "user" && String(last.content).trim() === text) {
+      history = history.slice(0, -1);
+    }
   }
 
   try {
-    const history = opts.history || [];
-    const messages = [
-      { role: "system", content: SYSTEM_PROMPT },
-      ...history.filter((m) => m.content && m.content !== "[deleted]").slice(-8),
-      {
-        role: "user",
-        content: `User name: ${userName}\nUnka message (is ka SEEDHA useful jawab do, phir 1 line bakchodi):\n${text}`,
-      },
-    ];
+    const groqReply = await replyWithGroq(text, userName, history);
+    if (groqReply) return groqReply;
 
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: process.env.GROQ_MODEL || "llama-3.1-8b-instant",
-        temperature: 0.7,
-        max_tokens: 280,
-        messages,
-      }),
-    });
-
-    if (!res.ok) {
-      console.error("Groq error:", res.status, await res.text());
-      return localContextualReply(text, userName);
-    }
-
-    const data = await res.json();
-    const reply = data.choices?.[0]?.message?.content?.trim();
-    return reply || localContextualReply(text, userName);
+    const geminiReply = await replyWithGemini(text, userName, history);
+    if (geminiReply) return geminiReply;
   } catch (err) {
-    console.error("Chaudhry reply error:", err);
-    return localContextualReply(text, userName);
+    console.error("Chaudhry LLM error:", err);
   }
+
+  return localContextualReply(text, userName);
+}
+
+/** Which brain is active (for debugging / status). */
+export function getChaudhryProvider() {
+  if (process.env.GROQ_API_KEY?.trim()) return "groq";
+  if (process.env.GEMINI_API_KEY?.trim() || process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim()) {
+    return "gemini";
+  }
+  return "local";
 }
 
 export { getRecentChatContext };
