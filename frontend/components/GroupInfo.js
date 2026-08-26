@@ -104,7 +104,7 @@ export default function GroupInfo({ groupId, currentUser, onUpdated, onLeft, onC
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="h-8 w-8 rounded-full border-4 border-sky-200 border-t-sky-500 animate-spin" />
+        <div className="h-8 w-8 rounded-full border-4 border-sky-200 dark:border-slate-600 border-t-sky-500 animate-spin" />
       </div>
     );
   }
@@ -123,25 +123,25 @@ export default function GroupInfo({ groupId, currentUser, onUpdated, onLeft, onC
   }
 
   return (
-    <div className="flex flex-col h-full bg-white">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-sky-100">
-        <h2 className="font-semibold text-sky-800">Group info</h2>
+    <div className="flex flex-col h-full bg-white dark:bg-slate-900">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-sky-100 dark:border-slate-700">
+        <h2 className="font-semibold text-sky-800 dark:text-sky-400">Group info</h2>
         <button type="button" onClick={onClose} className="btn-ghost text-sm py-1">
           Close
         </button>
       </div>
 
-      <div className="p-6 text-center border-b border-sky-50">
+      <div className="p-6 text-center border-b border-sky-50 dark:border-slate-700">
         <Avatar name={group.name} image={group.image} size="lg" />
-        <h3 className="mt-3 text-xl font-bold text-slate-800">{group.name}</h3>
-        <p className="text-sm text-slate-500">{group.members?.length || 0} members</p>
-        <p className="text-xs text-sky-600 mt-1">
+        <h3 className="mt-3 text-xl font-bold text-slate-800 dark:text-slate-100">{group.name}</h3>
+        <p className="text-sm text-slate-500 dark:text-slate-400">{group.members?.length || 0} members</p>
+        <p className="text-xs text-sky-600 dark:text-sky-400 mt-1">
           Admin: {group.admin?.name || "—"}
         </p>
       </div>
 
       {error && (
-        <p className="mx-4 mt-3 text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{error}</p>
+        <p className="mx-4 mt-3 text-sm error-box">{error}</p>
       )}
 
       {isAdmin && (
@@ -159,7 +159,7 @@ export default function GroupInfo({ groupId, currentUser, onUpdated, onLeft, onC
             {searchResults.map((u) => (
               <li
                 key={u._id}
-                className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-sky-50"
+                className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-sky-50 dark:hover:bg-slate-800"
               >
                 <Avatar name={u.name} image={u.avatar} size="sm" />
                 <span className="flex-1 text-sm truncate">{u.name}</span>
@@ -185,7 +185,7 @@ export default function GroupInfo({ groupId, currentUser, onUpdated, onLeft, onC
           {(group.members || []).map((m) => (
             <li
               key={m._id}
-              className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-sky-50"
+              className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-sky-50 dark:hover:bg-slate-800"
             >
               <Avatar name={m.name} image={m.avatar} size="sm" />
               <div className="flex-1 min-w-0">
@@ -196,7 +196,7 @@ export default function GroupInfo({ groupId, currentUser, onUpdated, onLeft, onC
                 <p className="text-xs text-slate-500">@{m.username}</p>
               </div>
               {group.admin?._id === m._id && (
-                <span className="text-[10px] font-semibold text-sky-600 bg-sky-50 px-2 py-0.5 rounded">
+                <span className="text-[10px] font-semibold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-slate-700 px-2 py-0.5 rounded">
                   Admin
                 </span>
               )}
@@ -215,12 +215,12 @@ export default function GroupInfo({ groupId, currentUser, onUpdated, onLeft, onC
         </ul>
       </div>
 
-      <div className="p-4 border-t border-sky-100">
+      <div className="p-4 border-t border-sky-100 dark:border-slate-700">
         <button
           type="button"
           onClick={handleLeave}
           disabled={busy}
-          className="w-full rounded-xl border border-red-200 text-red-600 hover:bg-red-50 py-2.5 font-medium transition"
+          className="w-full rounded-xl border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 py-2.5 font-medium transition"
         >
           Leave group
         </button>

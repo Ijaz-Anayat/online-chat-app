@@ -54,8 +54,8 @@ export default function FindPeople({ onContactAdded, onClose }) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-sky-100">
-        <h2 className="font-semibold text-sky-800">Find People</h2>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-sky-100 dark:border-slate-700">
+        <h2 className="font-semibold text-sky-800 dark:text-sky-400">Find People</h2>
         {onClose && (
           <button type="button" onClick={onClose} className="btn-ghost text-sm py-1">
             Close
@@ -74,7 +74,7 @@ export default function FindPeople({ onContactAdded, onClose }) {
       </div>
 
       {error && (
-        <p className="mx-4 mb-2 text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{error}</p>
+        <p className="mx-4 mb-2 text-sm error-box">{error}</p>
       )}
 
       <div className="flex-1 overflow-y-auto custom-scroll px-2 pb-4">
@@ -96,15 +96,15 @@ export default function FindPeople({ onContactAdded, onClose }) {
           {results.map((u) => (
             <li
               key={u._id}
-              className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-sky-50 transition"
+              className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-sky-50 dark:hover:bg-slate-800 transition"
             >
               <Avatar name={u.name} image={u.avatar} />
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-slate-800 truncate">{u.name}</p>
+                <p className="font-medium text-slate-800 dark:text-slate-100 truncate">{u.name}</p>
                 <p className="text-xs text-slate-500 truncate">@{u.username}</p>
               </div>
               {u.isContact ? (
-                <span className="text-xs text-sky-600 font-medium bg-sky-50 px-2.5 py-1 rounded-lg">
+                <span className="text-xs text-sky-600 dark:text-sky-400 font-medium bg-sky-50 dark:bg-slate-700 px-2.5 py-1 rounded-lg">
                   Added
                 </span>
               ) : (

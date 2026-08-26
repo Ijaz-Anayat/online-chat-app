@@ -1,4 +1,4 @@
-import { AuthProvider } from "@/context/AuthContext";
+import Providers from "@/components/Providers";
 import "./globals.css";
 
 export const metadata = {
@@ -8,9 +8,9 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen antialiased">
-        <AuthProvider>{children}</AuthProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

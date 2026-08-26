@@ -1,10 +1,8 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
-
 /**
- * Shared fetch helper — always sends cookies (httpOnly JWT).
+ * Same-origin API — works locally and on Vercel (no separate backend URL needed).
  */
 async function api(path, options = {}) {
-  const res = await fetch(`${API_URL}${path}`, {
+  const res = await fetch(path, {
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
@@ -70,5 +68,3 @@ export const messagesApi = {
   send: (body) => api("/api/messages/send", { method: "POST", body: JSON.stringify(body) }),
   softDelete: (id) => api(`/api/messages/${id}/delete`, { method: "PATCH" }),
 };
-
-export { API_URL };

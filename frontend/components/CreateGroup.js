@@ -45,8 +45,8 @@ export default function CreateGroup({ contacts, onCreated, onClose }) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-sky-100">
-        <h2 className="font-semibold text-sky-800">New Group</h2>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-sky-100 dark:border-slate-700">
+        <h2 className="font-semibold text-sky-800 dark:text-sky-400">New Group</h2>
         {onClose && (
           <button type="button" onClick={onClose} className="btn-ghost text-sm py-1">
             Close
@@ -55,10 +55,8 @@ export default function CreateGroup({ contacts, onCreated, onClose }) {
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
-        <div className="p-4 space-y-3 border-b border-sky-50">
-          {error && (
-            <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{error}</p>
-          )}
+        <div className="p-4 space-y-3 border-b border-sky-50 dark:border-slate-700">
+          {error && <p className="text-sm error-box">{error}</p>}
           <input
             className="input-field"
             placeholder="Group name"
@@ -93,19 +91,19 @@ export default function CreateGroup({ contacts, onCreated, onClose }) {
                     type="button"
                     onClick={() => toggle(c._id)}
                     className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 transition ${
-                      checked ? "bg-sky-100" : "hover:bg-sky-50"
+                      checked ? "bg-sky-100 dark:bg-slate-700" : "hover:bg-sky-50 dark:hover:bg-slate-800"
                     }`}
                   >
                     <Avatar name={c.name} image={c.avatar} />
                     <div className="flex-1 text-left min-w-0">
-                      <p className="font-medium text-slate-800 truncate">{c.name}</p>
+                      <p className="font-medium text-slate-800 dark:text-slate-100 truncate">{c.name}</p>
                       <p className="text-xs text-slate-500">@{c.username}</p>
                     </div>
                     <span
                       className={`h-5 w-5 rounded-md border-2 flex items-center justify-center text-xs ${
                         checked
                           ? "bg-sky-500 border-sky-500 text-white"
-                          : "border-sky-200"
+                          : "border-sky-200 dark:border-slate-600"
                       }`}
                     >
                       {checked ? "✓" : ""}
@@ -117,7 +115,7 @@ export default function CreateGroup({ contacts, onCreated, onClose }) {
           </ul>
         </div>
 
-        <div className="p-4 border-t border-sky-100">
+        <div className="p-4 border-t border-sky-100 dark:border-slate-700">
           <button type="submit" className="btn-primary w-full" disabled={submitting}>
             {submitting ? "Creating…" : `Create group${selected.length ? ` (${selected.length})` : ""}`}
           </button>

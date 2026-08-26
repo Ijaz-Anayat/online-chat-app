@@ -10,6 +10,11 @@
   --received-bubble: #ffffff;
 }
 
+.dark {
+  --bg-tint: #0f172a;
+  --received-bubble: #1e293b;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -26,15 +31,24 @@ body {
   color: #0f172a;
   font-family: "Segoe UI", Nunito, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  transition: background 0.25s ease, color 0.25s ease;
 }
 
-/* Custom scrollbar for chat lists */
+.dark body {
+  background: linear-gradient(160deg, #0f172a 0%, #1e293b 45%, #0c4a6e 100%);
+  color: #e2e8f0;
+}
+
+/* Custom scrollbar */
 .custom-scroll::-webkit-scrollbar {
   width: 6px;
 }
 .custom-scroll::-webkit-scrollbar-thumb {
   background: #bae6fd;
   border-radius: 999px;
+}
+.dark .custom-scroll::-webkit-scrollbar-thumb {
+  background: #334155;
 }
 .custom-scroll::-webkit-scrollbar-track {
   background: transparent;
@@ -45,9 +59,25 @@ body {
     @apply bg-sky-500 hover:bg-sky-600 text-white font-medium rounded-xl px-4 py-2.5 transition shadow-soft disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .btn-ghost {
-    @apply bg-white/80 hover:bg-sky-50 text-sky-700 font-medium rounded-xl px-3 py-2 transition border border-sky-100;
+    @apply bg-white/80 hover:bg-sky-50 text-sky-700 font-medium rounded-xl px-3 py-2 transition border border-sky-100
+      dark:bg-slate-800/80 dark:hover:bg-slate-700 dark:text-sky-300 dark:border-slate-600;
   }
   .input-field {
-    @apply w-full rounded-xl border border-sky-200 bg-white px-4 py-2.5 text-slate-800 placeholder:text-slate-400 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-200 transition;
+    @apply w-full rounded-xl border border-sky-200 bg-white px-4 py-2.5 text-slate-800 placeholder:text-slate-400 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-200 transition
+      dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-sky-500 dark:focus:ring-sky-900;
+  }
+  .panel-card {
+    @apply bg-white/90 backdrop-blur rounded-2xl shadow-soft border border-sky-100
+      dark:bg-slate-800/90 dark:border-slate-700 dark:shadow-none;
+  }
+  .page-title {
+    @apply text-3xl font-bold text-sky-700 tracking-tight dark:text-sky-400;
+  }
+  .page-subtitle {
+    @apply text-slate-500 mt-1 dark:text-slate-400;
+  }
+  .error-box {
+    @apply rounded-xl bg-red-50 text-red-600 text-sm px-3 py-2 border border-red-100
+      dark:bg-red-950/50 dark:text-red-400 dark:border-red-900;
   }
 }

@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { authApi } from "@/lib/api";
-import { connectSocket, disconnectSocket } from "@/lib/socket";
 
 const AuthContext = createContext(null);
 
@@ -10,17 +9,13 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Check session on mount
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
       try {
         const data = await authApi.me();
-        if (!cancelled) {
-          setUser(data.user);
-          connectSocket();
-        }
+        if (!cancelled) setUser(data.user);
       } catch {
         if (!cancelled) setUser(null);
       } finally {
@@ -36,14 +31,12 @@ export function AuthProvider({ children }) {
   const login = async (loginValue, password) => {
     const data = await authApi.login({ login: loginValue, password });
     setUser(data.user);
-    connectSocket();
     return data.user;
   };
 
   const signup = async (payload) => {
     const data = await authApi.signup(payload);
     setUser(data.user);
-    connectSocket();
     return data.user;
   };
 
@@ -53,7 +46,6 @@ export function AuthProvider({ children }) {
     } catch {
       // ignore
     }
-    disconnectSocket();
     setUser(null);
   };
 

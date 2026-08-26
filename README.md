@@ -1,104 +1,71 @@
-# SkyChat — Full-stack Real-time Chat (MERN)
+# SkyChat — Full-stack Chat (Next.js + MongoDB Atlas)
 
-A WhatsApp-style chat app with authentication, contacts, one-on-one messaging, groups, and soft-delete messages.
+WhatsApp-style chat: auth, contacts, 1-on-1 + group messaging, soft delete, dark mode.
 
-## Stack
+## Stack (Vercel-ready)
 
-- **Frontend:** Next.js (App Router), JavaScript, Tailwind CSS, Socket.io client
-- **Backend:** Node.js, Express, MongoDB (Mongoose), Socket.io, JWT + bcrypt
+- **Next.js 14** — App Router, API routes (backend built-in)
+- **MongoDB Atlas** — Mongoose ODM
+- **Auth** — JWT + bcrypt (httpOnly cookie)
+- **Updates** — polling every 3s (no Socket.io — works on Vercel free tier)
+
+> The `/backend` folder is the old Express + Socket.io server. You can ignore it or use it later when you split backend again.
 
 ## Folder structure
 
 ```
 online-chat-app/
-├── backend/          # Express API + Socket.io
-└── frontend/         # Next.js app
+├── frontend/              # Deploy this to Vercel
+│   ├── app/api/           # All API routes (auth, chat, groups…)
+│   ├── lib/models/        # Mongoose schemas
+│   └── ...
+└── backend/               # Legacy Express server (optional)
 ```
 
-## Prerequisites
-
-- Node.js 18+
-- **MongoDB** — install [MongoDB Community](https://www.mongodb.com/try/download/community) or set an Atlas URI in `backend/.env` as `MONGODB_URI`
-- If local Mongo is missing, the backend tries an in-memory server (needs [VC++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist) on Windows)
-
-## Setup
-
-### 1. Backend
-
-```bash
-cd backend
-npm install
-```
-
-Edit `backend/.env` if needed:
-
-```
-PORT=5000
-MONGODB_URI=mongodb://127.0.0.1:27017/online-chat-app
-JWT_SECRET=chat_app_super_secret_jwt_key_change_in_production
-CLIENT_URL=http://localhost:3000
-```
-
-Start the API:
-
-```bash
-npm run dev
-```
-
-Server: http://localhost:5000
-
-> Tip: set `USE_MEMORY_DB=true` in `.env` to skip connecting to local MongoDB and always use the in-memory database.
-
-### 2. Frontend
+## Local setup
 
 ```bash
 cd frontend
 npm install
 ```
 
-`frontend/.env.local` should contain:
+Create `frontend/.env.local`:
 
 ```
-NEXT_PUBLIC_API_URL=http://localhost:5000
-NEXT_PUBLIC_SOCKET_URL=http://localhost:5000
+MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/online-chat-app?retryWrites=true&w=majority
+JWT_SECRET=your_strong_secret_here
 ```
-
-Start Next.js:
 
 ```bash
 npm run dev
 ```
 
-App: http://localhost:3000
+Open http://localhost:3000
+
+## Deploy to Vercel
+
+1. Push repo to GitHub
+2. Import project on [Vercel](https://vercel.com) — **Root Directory: `frontend`**
+3. Add environment variables:
+   - `MONGODB_URI` — your Atlas connection string
+   - `JWT_SECRET` — long random secret string
+4. Deploy
+
+No Render/Railway needed for the current setup.
 
 ## Features
 
-1. **Auth** — signup / login, bcrypt passwords, JWT in httpOnly cookie, protected `/chat`
-2. **Find People** — search by name/username, add contacts (no duplicates)
-3. **1-on-1 chat** — real-time via Socket.io, last-message previews
-4. **Groups** — create, add/remove members (admin), leave, real-time updates
-5. **Soft delete** — “Delete for me” sets `deletedFor` (document stays in MongoDB)
+- Signup / login / logout
+- Find people, add contacts
+- 1-on-1 and group chat (polling-based refresh)
+- Group admin: add/remove members, leave
+- Soft delete messages (“Delete for me”)
+- Light + dark theme toggle
 
-## API overview
+## API routes (same domain)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/auth/signup` | Register |
-| POST | `/api/auth/login` | Login |
-| POST | `/api/auth/logout` | Logout |
-| GET | `/api/auth/me` | Current user |
-| GET | `/api/users/search?query=` | Search users |
-| POST | `/api/contacts/add` | Add contact |
-| GET | `/api/contacts` | List contacts |
-| POST | `/api/groups/create` | Create group |
-| GET | `/api/groups` | List groups |
-| POST | `/api/groups/:id/add-member` | Add member |
-| POST | `/api/groups/:id/remove-member` | Remove member |
-| POST | `/api/groups/:id/leave` | Leave group |
-| GET | `/api/messages/:chatId` | Get messages (`?type=group`) |
-| POST | `/api/messages/send` | Send message |
-| PATCH | `/api/messages/:id/delete` | Soft delete |
+All live under `/api/...` inside the Next.js app — see `frontend/app/api/`.
 
-## Theme
+## Later: separate backend again
 
-Sky-blue UI (`sky-500` accents), light backgrounds, rounded bubbles, responsive sidebar + chat layout.
+When you want true real-time (Socket.io), extract `app/api` logic back to `/backend` and point `NEXT_PUBLIC_API_URL` at Render/Railway.

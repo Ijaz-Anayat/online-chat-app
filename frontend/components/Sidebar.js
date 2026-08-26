@@ -1,6 +1,7 @@
 "use client";
 
 import Avatar, { formatTime } from "./Avatar";
+import ThemeToggle from "./ThemeToggle";
 
 /**
  * Left sidebar — chat list (contacts + groups) with search filter
@@ -26,32 +27,35 @@ export default function Sidebar({
 
   return (
     <aside
-      className={`flex flex-col h-full bg-white/95 border-r border-sky-100 w-full md:w-[340px] shrink-0 ${
+      className={`flex flex-col h-full bg-white/95 dark:bg-slate-900/95 border-r border-sky-100 dark:border-slate-700 w-full md:w-[340px] shrink-0 ${
         mobileOpen ? "flex" : "hidden md:flex"
       }`}
     >
       {/* Header */}
-      <div className="px-4 pt-4 pb-3 border-b border-sky-100">
+      <div className="px-4 pt-4 pb-3 border-b border-sky-100 dark:border-slate-700">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <div className="h-9 w-9 rounded-xl bg-sky-500 text-white font-bold flex items-center justify-center shadow-soft">
               S
             </div>
             <div>
-              <h1 className="font-bold text-sky-700 leading-tight">SkyChat</h1>
+              <h1 className="font-bold text-sky-700 dark:text-sky-400 leading-tight">SkyChat</h1>
               <p className="text-[11px] text-slate-400 truncate max-w-[140px]">
                 {user?.name}
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onLogout}
-            className="text-xs text-slate-500 hover:text-sky-700 btn-ghost py-1"
-            title="Log out"
-          >
-            Logout
-          </button>
+          <div className="flex items-center gap-1.5">
+            <ThemeToggle />
+            <button
+              type="button"
+              onClick={onLogout}
+              className="text-xs text-slate-500 dark:text-slate-400 hover:text-sky-700 dark:hover:text-sky-400 btn-ghost py-1"
+              title="Log out"
+            >
+              Logout
+            </button>
+          </div>
         </div>
 
         <input
@@ -98,8 +102,8 @@ export default function Sidebar({
                   onClick={() => onSelectChat(chat)}
                   className={`w-full flex items-center gap-3 px-4 py-3 text-left transition border-l-4 ${
                     isActive
-                      ? "bg-sky-50 border-sky-500"
-                      : "border-transparent hover:bg-sky-50/70"
+                      ? "bg-sky-50 dark:bg-slate-800 border-sky-500"
+                      : "border-transparent hover:bg-sky-50/70 dark:hover:bg-slate-800/70"
                   }`}
                 >
                   <Avatar
@@ -108,10 +112,10 @@ export default function Sidebar({
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="font-semibold text-slate-800 truncate">
+                      <p className="font-semibold text-slate-800 dark:text-slate-100 truncate">
                         {chat.name}
                         {chat.type === "group" && (
-                          <span className="ml-1 text-[10px] font-medium text-sky-500 bg-sky-50 px-1.5 py-0.5 rounded">
+                          <span className="ml-1 text-[10px] font-medium text-sky-500 dark:text-sky-400 bg-sky-50 dark:bg-slate-700 px-1.5 py-0.5 rounded">
                             Group
                           </span>
                         )}
