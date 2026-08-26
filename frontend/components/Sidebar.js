@@ -130,6 +130,11 @@ export default function Sidebar({
                         }`}
                       >
                         {chat.name}
+                        {chat.isBot && (
+                          <span className="ml-1 text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded">
+                            Bot
+                          </span>
+                        )}
                         {chat.type === "group" && (
                           <span className="ml-1 text-[10px] font-medium text-sky-500 dark:text-sky-400 bg-sky-50 dark:bg-slate-700 px-1.5 py-0.5 rounded">
                             Group

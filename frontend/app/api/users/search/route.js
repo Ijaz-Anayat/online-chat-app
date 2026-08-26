@@ -23,13 +23,14 @@ export async function GET(request) {
         { username: { $regex: q, $options: "i" } },
       ],
     })
-      .select("name username email avatar")
+      .select("name username email avatar isBot")
       .limit(20);
 
     return NextResponse.json({
       users: users.map((u) => ({
         ...u.toObject(),
         isContact: contactIds.includes(u._id.toString()),
+        isBot: Boolean(u.isBot),
       })),
     });
   } catch (error) {

@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { connectDB } from "@/lib/db";
 import User from "@/lib/models/User";
 import { signToken, getCookieOptions, publicUser } from "@/lib/auth";
+import { ensureChaudhryContact } from "@/lib/chaudhry";
 
 export async function POST(request) {
   try {
@@ -30,6 +31,12 @@ export async function POST(request) {
       email: email.trim().toLowerCase(),
       password,
     });
+
+    try {
+      await ensureChaudhryContact(user._id);
+    } catch (err) {
+      console.error("Failed to add Chaudhry contact:", err);
+    }
 
     cookies().set("token", signToken(user._id), getCookieOptions());
 

@@ -68,6 +68,13 @@ cd frontend
 node -e "console.log(JSON.stringify(require('web-push').generateVAPIDKeys()))"
 ```
 
+## Chaudhry AI (bakchod bot)
+
+- Auto-added to every user's contacts as **Chaudhry AI** (`@chaudhry_ai`)
+- Always replies in fun / bakchodi mode
+- Works without API key (local witty lines)
+- Optional smarter replies: set `GROQ_API_KEY` in env (free from [Groq Console](https://console.groq.com))
+
 ## Features
 
 - Signup / login / logout

@@ -4,6 +4,11 @@ import Message from "@/lib/models/Message";
 import Group from "@/lib/models/Group";
 import { requireAuth } from "@/lib/auth";
 import { sendPushToUsers } from "@/lib/push";
+import {
+  ensureChaudhryBot,
+  ensureChaudhryContact,
+  generateChaudhryReply,
+} from "@/lib/chaudhry";
 
 export async function POST(request) {
   const auth = await requireAuth();
@@ -39,7 +44,7 @@ export async function POST(request) {
 
     message = await message.populate("senderId", "name username avatar");
 
-    // Chrome / web push to recipients (don't block response on failure)
+    // Chrome / web push to human recipients
     const preview =
       content.trim().length > 80 ? `${content.trim().slice(0, 80)}…` : content.trim();
     const senderName = message.senderId?.name || "Someone";
@@ -53,6 +58,11 @@ export async function POST(request) {
       recipientIds = [receiverId];
     }
 
+    // Skip push to bot account
+    const bot = await ensureChaudhryBot();
+    const botId = bot._id.toString();
+    recipientIds = recipientIds.filter((id) => id !== botId);
+
     if (recipientIds.length) {
       sendPushToUsers(recipientIds, {
         title: groupId ? `${senderName} in ${group.name}` : senderName,
@@ -62,7 +72,30 @@ export async function POST(request) {
       }).catch((err) => console.error("Push notify error:", err));
     }
 
-    return NextResponse.json({ message }, { status: 201 });
+    // Chaudhry AI bakchod auto-reply (DM only)
+    let botMessage = null;
+    if (!groupId && receiverId && String(receiverId) === botId) {
+      await ensureChaudhryContact(auth.user._id);
+      const replyText = await generateChaudhryReply(content.trim(), auth.user.name);
+      botMessage = await Message.create({
+        senderId: bot._id,
+        receiverId: auth.user._id,
+        groupId: null,
+        content: replyText,
+        status: "sent",
+        readBy: [bot._id],
+      });
+      botMessage = await botMessage.populate("senderId", "name username avatar");
+
+      sendPushToUsers([auth.user._id.toString()], {
+        title: "Chaudhry AI",
+        body: replyText.length > 80 ? `${replyText.slice(0, 80)}…` : replyText,
+        url: "/chat",
+        tag: `dm-${botId}`,
+      }).catch(() => {});
+    }
+
+    return NextResponse.json({ message, botMessage }, { status: 201 });
   } catch (error) {
     console.error("Send message error:", error);
     return NextResponse.json({ message: "Failed to send message." }, { status: 500 });

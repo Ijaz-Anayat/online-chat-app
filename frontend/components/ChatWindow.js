@@ -79,6 +79,8 @@ export default function ChatWindow({
           <p className="text-xs text-slate-400 dark:text-slate-500 truncate">
             {chat.type === "group"
               ? `${chat.members?.length || "…"} members`
+              : chat.isBot
+              ? "Fun & bakchodi mode 24/7"
               : `@${chat.username || ""}`}
           </p>
         </div>

@@ -178,8 +178,14 @@ export default function ChatPage() {
     const data = await messagesApi.send(payload);
     if (data.message) {
       setMessages((prev) => {
-        if (prev.some((m) => m._id === data.message._id)) return prev;
-        return [...prev, data.message];
+        let next = prev;
+        if (!prev.some((m) => m._id === data.message._id)) {
+          next = [...prev, data.message];
+        }
+        if (data.botMessage && !next.some((m) => m._id === data.botMessage._id)) {
+          next = [...next, data.botMessage];
+        }
+        return next;
       });
     }
     loadLists();
