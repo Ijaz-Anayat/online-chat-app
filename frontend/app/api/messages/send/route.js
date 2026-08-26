@@ -8,6 +8,7 @@ import {
   ensureChaudhryBot,
   ensureChaudhryContact,
   generateChaudhryReply,
+  getRecentChatContext,
 } from "@/lib/chaudhry";
 
 export async function POST(request) {
@@ -72,11 +73,14 @@ export async function POST(request) {
       }).catch((err) => console.error("Push notify error:", err));
     }
 
-    // Chaudhry AI bakchod auto-reply (DM only)
+    // Chaudhry AI bakchod auto-reply (DM only) — on-topic + funny
     let botMessage = null;
     if (!groupId && receiverId && String(receiverId) === botId) {
       await ensureChaudhryContact(auth.user._id);
-      const replyText = await generateChaudhryReply(content.trim(), auth.user.name);
+      const history = await getRecentChatContext(auth.user._id, bot._id, 8);
+      const replyText = await generateChaudhryReply(content.trim(), auth.user.name, {
+        history,
+      });
       botMessage = await Message.create({
         senderId: bot._id,
         receiverId: auth.user._id,

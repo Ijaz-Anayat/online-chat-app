@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import User from "./models/User";
 import Contact from "./models/Contact";
+import Message from "./models/Message";
 
 export const CHAUDHRY = {
   name: "Chaudhry AI",
@@ -8,27 +9,16 @@ export const CHAUDHRY = {
   email: "chaudhry.ai@skychat.bot",
 };
 
-const SYSTEM_PROMPT = `Tu "Chaudhry AI" hai — SkyChat ka legendary bakchod chatbot.
-Rules (strict):
-- HAMESHA fun, roast, memes, bakchodi mode. Kabhi serious therapist / teacher mat ban.
-- Light roast allowed, personal attacks / hate / NSFW nahi.
-- Short replies (1–3 lines). Mix Urdu + Roman Urdu + English like Pakistani WhatsApp chats.
-- Use witty punchlines, "oye", "bhai", "chaudhry style" swagger.
-- Agar user serious sawal pooche to bhi mazaak uda ke jawab de, phir chhoti tip optional.
-- Never say you are ChatGPT/Claude. You are Chaudhry AI only.`;
+const SYSTEM_PROMPT = `Tu "Chaudhry AI" hai — SkyChat ka bakchod-but-smart chatbot.
 
-const FALLBACK_LINES = [
-  "Oye bhai seedha sawal pooch — main AI hoon, mind reader nahi 😂",
-  "Chaudhry soch raha hai… soch ke thak gaya. Dobara likh, thora spicy bana 🔥",
-  "Bro yeh message dekh ke main hasa, phir khud pe hasa. Dual comedy 🫡",
-  "Acha scene hai… lekin main phir bhi bakchodi hi karunga. Career counselling free nahi 😎",
-  "Haan ji? Order confirm: 1 plate roast, extra crispy 🌶️",
-  "System overload: itni seriousness detect hui ke firewall ne bakchodi mode on kar diya.",
-  "Bhai tu serious ho raha hai, main serious nahi. Balance of the universe ✨",
-  "Chaudhry ka fatwa: aaj sirf fun allowed. Kal dekh lenge… (kal bhi fun) 🫡",
-  "Lol yeh to WhatsApp status jaisa laga. Main reply mein meme bhejta… text mein 📱",
-  "Samajh gaya. Solution: chai pi, bakchodi kar, life set. Next! ☕",
-];
+ZAROORI RULES:
+1. PEHLE user ke ACTUAL sawal / baat ka jawab de. Off-topic random jokes mat maar.
+2. Jawab hamesha fun + Roman Urdu / Urdu-English mix + light roast style mein ho.
+3. 1–4 short lines. Clear, related, witty.
+4. Agar user pooche "weather / code / love / study / food" wagaira — usi topic pe jawab + bakchodi.
+5. Hate, NSFW, personal abuse nahi.
+6. Kabhi mat kehna ke tu ChatGPT / Claude hai. Sirf Chaudhry AI.
+7. Agar kuch samajh na aaye to clarify kar, lekin topic chhod ke random line mat de.`;
 
 /**
  * Ensure the Chaudhry AI bot user exists in MongoDB.
@@ -78,9 +68,86 @@ export async function ensureChaudhryContact(userId) {
   return bot;
 }
 
-function pickFallback(userText) {
-  const i = Math.abs(hashCode(userText || "x")) % FALLBACK_LINES.length;
-  return FALLBACK_LINES[i];
+function clip(text, max = 80) {
+  const t = String(text || "").trim().replace(/\s+/g, " ");
+  if (t.length <= max) return t;
+  return `${t.slice(0, max)}…`;
+}
+
+/**
+ * Local contextual bakchod reply (no API key needed).
+ * Always references the user's message so it feels on-topic.
+ */
+function localContextualReply(userMessage, userName = "bhai") {
+  const raw = String(userMessage || "").trim();
+  const text = raw.toLowerCase();
+  const name = userName?.split(" ")[0] || "bhai";
+  const snippet = clip(raw, 60);
+
+  // Greetings
+  if (/^(hi|hello|hey|salam|assalam|aoa|hola|yo)\b/.test(text) || text.includes("kaise ho") || text.includes("kya haal")) {
+    return `Oye ${name}! Main Chaudhry AI — bakchodi department on duty 🫡\nBolo kya scene hai? Sawal pooch, roast ready hai.`;
+  }
+
+  // Identity
+  if (text.includes("who are you") || text.includes("kon ho") || text.includes("tum kaun") || text.includes("your name")) {
+    return `Main Chaudhry AI — SkyChat ka official bakchod consultant.\nTumhari baat: "${snippet}" — jawab: main serious nahi, lekin relevant zaroor 😎`;
+  }
+
+  // Weather
+  if (text.includes("weather") || text.includes("mausam") || text.includes("barish") || text.includes("garmi") || text.includes("sardi")) {
+    return `${name}, mausam ki baat? Chaudhry forecast: bahar jo bhi ho, andar bakchodi 100% guaranteed ☔🔥\n"${snippet}" pe mera take — chai + AC = life set.`;
+  }
+
+  // Food
+  if (text.includes("khana") || text.includes("food") || text.includes("hungry") || text.includes("bhook") || text.includes("pizza") || text.includes("biryani")) {
+    return `Food topic activate 🍔 "${snippet}"\nChaudhry advice: pehle khao, phir socho. Empty stomach pe philosophy banned. Biryani > motivation.`;
+  }
+
+  // Love / relationship
+  if (text.includes("love") || text.includes("crush") || text.includes("gf") || text.includes("bf") || text.includes("pyaar") || text.includes("rishta")) {
+    return `Arre ${name}, dil wali baat: "${snippet}"\nChaudhry formula: clear baat karo, overthink mat karo, aur bakchodi se mood light rakho 💚\n(Serious tip, funny packaging — premium service.)`;
+  }
+
+  // Study / exam / code
+  if (text.includes("study") || text.includes("exam") || text.includes("parhai") || text.includes("assignment") || text.includes("code") || text.includes("bug") || text.includes("project")) {
+    return `${name} mode: grind + bakchodi balance.\nTumhari baat "${snippet}" — Chaudhry plan: 25 min focus, 5 min roast break. Bug aaye to usko bhi roast kar dena 💻😂`;
+  }
+
+  // Help / how
+  if (text.startsWith("how ") || text.includes("kaise") || text.includes("kese") || text.includes("help") || text.includes("madad")) {
+    return `Samajh gaya: "${snippet}"\nStep 1: panic mat kar.\nStep 2: chhota chhota break karke kar.\nStep 3: stuck ho to dubara clear pooch — main bakchod hoon, lekin guide bhi karunga 🫡`;
+  }
+
+  // What / why questions
+  if (text.startsWith("what ") || text.startsWith("why ") || text.startsWith("kya ") || text.includes("kyun") || text.includes("kis liye") || text.includes("?")) {
+    return `${name}, seedha jawab (Chaudhry style):\nTumne poocha: "${snippet}"\nMatlab clear karo / detail do to main aur precise roast+jawab dunga. Abhi short take: socho simple, overcomplicate mat karo — aur haso zara 😄`;
+  }
+
+  // Thanks
+  if (text.includes("thanks") || text.includes("shukriya") || text.includes("thank you")) {
+    return `Mention not ${name} 🫡 "${snippet}" — Chaudhry always on duty. Agli bakchodi ke liye ready raho.`;
+  }
+
+  // Bye
+  if (text.includes("bye") || text.includes("allah hafiz") || text.includes("good night") || text.includes("gn") || text.includes("chalta")) {
+    return `Chalo ${name}, take care! "${snippet}" pe exit stylish tha.\nPhir aana — bakchodi stall band nahi hota 🌙`;
+  }
+
+  // Default: always echo their topic + bakchod take
+  const openers = [
+    `Oye ${name}, yeh jo bola "${snippet}" —`,
+    `${name} sun, "${snippet}" wali baat pe Chaudhry entry:`,
+    `Arre wah, "${snippet}"? Chaudhry analysis:`,
+  ];
+  const endings = [
+    `samajh aa gaya scene. Ab thora chill + thora action — overthink mat kar, warna main roast upgrade kar dunga 🔥`,
+    `point clear hai. Solution: haso, socho, phir karo. Main yahan bakchodi support ke liye available hoon 😎`,
+    `noted. Main serious lecture nahi dunga, lekin practical tip yeh: simple rakho, drama kam. Next move batao!`,
+  ];
+  const i = Math.abs(hashCode(raw)) % openers.length;
+  const j = Math.abs(hashCode(raw + "z")) % endings.length;
+  return `${openers[i]} ${endings[j]}`;
 }
 
 function hashCode(str) {
@@ -90,17 +157,50 @@ function hashCode(str) {
 }
 
 /**
- * Generate a bakchod reply — Groq if GROQ_API_KEY set, else local fallbacks.
+ * Recent DM history between user and bot for better context.
  */
-export async function generateChaudhryReply(userMessage, userName = "bhai") {
+async function getRecentChatContext(userId, botId, limit = 8) {
+  const msgs = await Message.find({
+    groupId: null,
+    deletedFor: { $ne: userId },
+    $or: [
+      { senderId: userId, receiverId: botId },
+      { senderId: botId, receiverId: userId },
+    ],
+  })
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .lean();
+
+  return msgs.reverse().map((m) => ({
+    role: String(m.senderId) === String(botId) ? "assistant" : "user",
+    content: m.isDeleted ? "[deleted]" : String(m.content || ""),
+  }));
+}
+
+/**
+ * Generate a bakchod-but-relevant reply.
+ * Uses Groq if GROQ_API_KEY is set; otherwise contextual local replies.
+ */
+export async function generateChaudhryReply(userMessage, userName = "bhai", opts = {}) {
   const text = String(userMessage || "").trim();
   const key = process.env.GROQ_API_KEY;
 
   if (!key) {
-    return pickFallback(text);
+    return localContextualReply(text, userName);
   }
 
   try {
+    const history = opts.history || [];
+    const messages = [
+      { role: "system", content: SYSTEM_PROMPT },
+      ...history.filter((m) => m.content && m.content !== "[deleted]").slice(-8),
+      {
+        role: "user",
+        content: `User name: ${userName}\nReply in character. Answer THIS message (stay on topic, keep it funny):\n${text}`,
+      },
+    ];
+
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -109,31 +209,27 @@ export async function generateChaudhryReply(userMessage, userName = "bhai") {
       },
       body: JSON.stringify({
         model: process.env.GROQ_MODEL || "llama-3.1-8b-instant",
-        temperature: 0.95,
-        max_tokens: 180,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: `User ka naam: ${userName}\nUser ka message: ${text}`,
-          },
-        ],
+        temperature: 0.85,
+        max_tokens: 220,
+        messages,
       }),
     });
 
     if (!res.ok) {
       console.error("Groq error:", res.status, await res.text());
-      return pickFallback(text);
+      return localContextualReply(text, userName);
     }
 
     const data = await res.json();
     const reply = data.choices?.[0]?.message?.content?.trim();
-    return reply || pickFallback(text);
+    return reply || localContextualReply(text, userName);
   } catch (err) {
     console.error("Chaudhry reply error:", err);
-    return pickFallback(text);
+    return localContextualReply(text, userName);
   }
 }
+
+export { getRecentChatContext };
 
 export function isChaudhryBotId(id, botId) {
   return String(id) === String(botId);
