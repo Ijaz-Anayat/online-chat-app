@@ -1,0 +1,230 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { groupsApi, usersApi, contactsApi } from "@/lib/api";
+import Avatar from "./Avatar";
+
+/**
+ * Group info: members, admin add/remove, leave
+ */
+export default function GroupInfo({ groupId, currentUser, onUpdated, onLeft, onClose }) {
+  const [group, setGroup] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [busy, setBusy] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const data = await groupsApi.get(groupId);
+      setGroup(data.group);
+      onUpdated?.(data.group);
+    } catch (err) {
+      setError(err.message || "Failed to load group");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupId]);
+
+  useEffect(() => {
+    if (!search.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    const t = setTimeout(async () => {
+      try {
+        const data = await usersApi.search(search.trim());
+        const memberIds = (group?.members || []).map((m) => m._id);
+        setSearchResults((data.users || []).filter((u) => !memberIds.includes(u._id)));
+      } catch {
+        setSearchResults([]);
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [search, group]);
+
+  const isAdmin = group?.admin?._id === currentUser?._id;
+
+  const handleAdd = async (memberId) => {
+    setBusy(true);
+    setError("");
+    try {
+      // Ensure they are a contact first (optional convenience)
+      try {
+        await contactsApi.add(memberId);
+      } catch {
+        // ignore if already contact
+      }
+      const data = await groupsApi.addMember(groupId, memberId);
+      setGroup(data.group);
+      onUpdated?.(data.group);
+      setSearch("");
+      setSearchResults([]);
+    } catch (err) {
+      setError(err.message || "Failed to add member");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRemove = async (memberId) => {
+    if (!confirm("Remove this member from the group?")) return;
+    setBusy(true);
+    setError("");
+    try {
+      const data = await groupsApi.removeMember(groupId, memberId);
+      setGroup(data.group);
+      onUpdated?.(data.group);
+    } catch (err) {
+      setError(err.message || "Failed to remove member");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleLeave = async () => {
+    if (!confirm("Leave this group?")) return;
+    setBusy(true);
+    try {
+      await groupsApi.leave(groupId);
+      onLeft?.(groupId);
+    } catch (err) {
+      setError(err.message || "Failed to leave");
+      setBusy(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="h-8 w-8 rounded-full border-4 border-sky-200 border-t-sky-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!group) {
+    return (
+      <div className="p-6 text-center text-slate-500">
+        {error || "Group not found"}
+        <div className="mt-4">
+          <button type="button" className="btn-ghost" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full bg-white">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-sky-100">
+        <h2 className="font-semibold text-sky-800">Group info</h2>
+        <button type="button" onClick={onClose} className="btn-ghost text-sm py-1">
+          Close
+        </button>
+      </div>
+
+      <div className="p-6 text-center border-b border-sky-50">
+        <Avatar name={group.name} image={group.image} size="lg" />
+        <h3 className="mt-3 text-xl font-bold text-slate-800">{group.name}</h3>
+        <p className="text-sm text-slate-500">{group.members?.length || 0} members</p>
+        <p className="text-xs text-sky-600 mt-1">
+          Admin: {group.admin?.name || "—"}
+        </p>
+      </div>
+
+      {error && (
+        <p className="mx-4 mt-3 text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{error}</p>
+      )}
+
+      {isAdmin && (
+        <div className="px-4 pt-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">
+            Add member
+          </p>
+          <input
+            className="input-field mb-2"
+            placeholder="Search users to add…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <ul className="space-y-1 max-h-32 overflow-y-auto custom-scroll mb-2">
+            {searchResults.map((u) => (
+              <li
+                key={u._id}
+                className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-sky-50"
+              >
+                <Avatar name={u.name} image={u.avatar} size="sm" />
+                <span className="flex-1 text-sm truncate">{u.name}</span>
+                <button
+                  type="button"
+                  className="btn-primary text-xs py-1 px-2"
+                  disabled={busy}
+                  onClick={() => handleAdd(u._id)}
+                >
+                  Add
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto custom-scroll px-4 py-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">
+          Members
+        </p>
+        <ul className="space-y-1">
+          {(group.members || []).map((m) => (
+            <li
+              key={m._id}
+              className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-sky-50"
+            >
+              <Avatar name={m.name} image={m.avatar} size="sm" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">
+                  {m.name}
+                  {m._id === currentUser?._id ? " (you)" : ""}
+                </p>
+                <p className="text-xs text-slate-500">@{m.username}</p>
+              </div>
+              {group.admin?._id === m._id && (
+                <span className="text-[10px] font-semibold text-sky-600 bg-sky-50 px-2 py-0.5 rounded">
+                  Admin
+                </span>
+              )}
+              {isAdmin && m._id !== group.admin?._id && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => handleRemove(m._id)}
+                  className="text-xs text-red-500 hover:underline"
+                >
+                  Remove
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="p-4 border-t border-sky-100">
+        <button
+          type="button"
+          onClick={handleLeave}
+          disabled={busy}
+          className="w-full rounded-xl border border-red-200 text-red-600 hover:bg-red-50 py-2.5 font-medium transition"
+        >
+          Leave group
+        </button>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --sky-primary: #0ea5e9;
+  --sky-light: #e0f2fe;
+  --bg-tint: #f0f9ff;
+  --sent-bubble: #0ea5e9;
+  --received-bubble: #ffffff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: linear-gradient(160deg, #f0f9ff 0%, #ffffff 45%, #e0f2fe 100%);
+  color: #0f172a;
+  font-family: "Segoe UI", Nunito, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom scrollbar for chat lists */
+.custom-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scroll::-webkit-scrollbar-thumb {
+  background: #bae6fd;
+  border-radius: 999px;
+}
+.custom-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-sky-500 hover:bg-sky-600 text-white font-medium rounded-xl px-4 py-2.5 transition shadow-soft disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-ghost {
+    @apply bg-white/80 hover:bg-sky-50 text-sky-700 font-medium rounded-xl px-3 py-2 transition border border-sky-100;
+  }
+  .input-field {
+    @apply w-full rounded-xl border border-sky-200 bg-white px-4 py-2.5 text-slate-800 placeholder:text-slate-400 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-200 transition;
+  }
+}
