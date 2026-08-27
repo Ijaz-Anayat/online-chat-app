@@ -2,6 +2,32 @@
 
 import { formatTime } from "./Avatar";
 
+const SENDER_NAME_COLORS = [
+  "text-violet-600 dark:text-violet-400",
+  "text-emerald-600 dark:text-emerald-400",
+  "text-orange-600 dark:text-orange-400",
+  "text-rose-600 dark:text-rose-400",
+  "text-indigo-600 dark:text-indigo-400",
+  "text-teal-600 dark:text-teal-400",
+  "text-fuchsia-600 dark:text-fuchsia-400",
+  "text-cyan-600 dark:text-cyan-400",
+  "text-lime-600 dark:text-lime-400",
+  "text-pink-600 dark:text-pink-400",
+];
+
+function getSenderNameColor(sender) {
+  if (!sender) return "text-sky-600 dark:text-sky-400";
+  if (sender.isBot || sender.username === "chaudhry_ai") {
+    return "text-amber-600 dark:text-amber-400";
+  }
+  const key = String(sender._id || sender.username || sender.name || "");
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) {
+    hash = (hash + key.charCodeAt(i) * (i + 7)) % SENDER_NAME_COLORS.length;
+  }
+  return SENDER_NAME_COLORS[hash];
+}
+
 function renderContent(content, isMine) {
   const text = String(content || "");
   const parts = text.split(/(@(?:ai|chaudhry(?:_ai)?)\b)/gi);
@@ -31,19 +57,20 @@ function renderContent(content, isMine) {
 /**
  * Single message bubble with hover "Delete for me"
  */
-export default function MessageBubble({ message, isMine, onDelete }) {
+export default function MessageBubble({ message, isMine, isGroupChat = false, onDelete }) {
   const sender = message.senderId;
   const deleted = message.isDeleted || message._deletedForMe;
   const time = formatTime(message.createdAt);
+  const senderColor = getSenderNameColor(sender);
 
   return (
     <div className={`group flex ${isMine ? "justify-end" : "justify-start"} mb-2`}>
       <div className={`relative max-w-[78%] sm:max-w-[65%]`}>
         {!isMine && sender?.name && (
-          <p className="text-[11px] text-sky-600 dark:text-sky-400 font-medium mb-0.5 ml-1">
+          <p className={`text-[11px] font-semibold mb-0.5 ml-1 ${isGroupChat ? senderColor : "text-sky-600 dark:text-sky-400"}`}>
             {sender.name}
             {(sender.isBot || sender.username === "chaudhry_ai") && (
-              <span className="ml-1 text-[9px] uppercase tracking-wide text-amber-600 dark:text-amber-400">
+              <span className="ml-1 text-[9px] uppercase tracking-wide text-amber-600 dark:text-amber-400 font-bold">
                 bot
               </span>
             )}

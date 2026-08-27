@@ -85,7 +85,7 @@ export default function ChatWindow({
 
   const isGroupAdmin =
     chat.type === "group" &&
-    String(chat.admin?._id || chat.admin) === String(currentUser._id);
+    String(chat.admin?._id || chat.admin) === String(currentUser?._id);
 
   const canClearChat =
     messages.length > 0 && (chat.type !== "group" || isGroupAdmin);
@@ -129,11 +129,7 @@ export default function ChatWindow({
               onClick={handleClearChat}
               disabled={clearing}
               className="btn-ghost text-sm py-1.5 text-red-500 hover:text-red-600 dark:text-red-400 border-red-100 dark:border-red-900/50"
-              title={
-                chat.type === "group"
-                  ? "Clear all messages for you (admin only)"
-                  : "Clear all messages for you"
-              }
+              title={chat.type === "group" ? "Clear group chat (admin only)" : "Clear all messages for you"}
             >
               {clearing ? "…" : "Clear"}
             </button>
@@ -166,6 +162,7 @@ export default function ChatWindow({
                 key={m._id}
                 message={m}
                 isMine={isMine}
+                isGroupChat={chat.type === "group"}
                 onDelete={onDelete}
               />
             );
