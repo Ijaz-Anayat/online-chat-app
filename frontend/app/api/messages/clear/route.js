@@ -34,6 +34,12 @@ export async function POST(request) {
       if (!isMember) {
         return NextResponse.json({ message: "Not a group member." }, { status: 403 });
       }
+      if (group.admin.toString() !== userId.toString()) {
+        return NextResponse.json(
+          { message: "Only the group admin can clear this chat." },
+          { status: 403 }
+        );
+      }
       filter = {
         groupId: chatId,
         deletedFor: { $ne: userId },

@@ -83,6 +83,13 @@ export default function ChatWindow({
     chat.type === "group" &&
     (chat.members || []).some((m) => m?.isBot || m?.username === "chaudhry_ai");
 
+  const isGroupAdmin =
+    chat.type === "group" &&
+    String(chat.admin?._id || chat.admin) === String(currentUser._id);
+
+  const canClearChat =
+    messages.length > 0 && (chat.type !== "group" || isGroupAdmin);
+
   const placeholder =
     chat.type === "group" && hasChaudhry
       ? "Message… or @ai for Chaudhry"
@@ -116,13 +123,17 @@ export default function ChatWindow({
           </p>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
-          {messages.length > 0 && (
+          {canClearChat && (
             <button
               type="button"
               onClick={handleClearChat}
               disabled={clearing}
               className="btn-ghost text-sm py-1.5 text-red-500 hover:text-red-600 dark:text-red-400 border-red-100 dark:border-red-900/50"
-              title="Clear all messages for you"
+              title={
+                chat.type === "group"
+                  ? "Clear all messages for you (admin only)"
+                  : "Clear all messages for you"
+              }
             >
               {clearing ? "…" : "Clear"}
             </button>
