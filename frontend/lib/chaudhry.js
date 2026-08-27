@@ -98,6 +98,12 @@ function getReplyTemperature(turnOpts = {}) {
   return turnOpts.groupMode ? 0.98 : 0.85;
 }
 
+/**
+ * Shared "is this reply too generic / template-y" detector.
+ * Used in BOTH group mode and DM mode now — previously DM replies
+ * never got this safety net, so a boring LLM reply in a 1:1 chat
+ * would go out untouched.
+ */
 function isBoringChaudhryReply(reply) {
   const r = String(reply || "").toLowerCase();
   if (!r || r.length < 35) return true;
@@ -145,10 +151,20 @@ function groupRoastFallback(text, userName, opts = {}) {
   return `${useful}\n\n${roast}${side}`;
 }
 
+/**
+ * Non-group "boring reply" rescue: instead of a roast, just fall back
+ * to the useful local reply so DM users always get something concrete
+ * instead of a generic LLM shrug.
+ */
+function dmBoringFallback(text, userName) {
+  return localContextualReply(text, userName);
+}
+
 function finalizeReply(reply, text, userName, turnOpts) {
-  if (!turnOpts.groupMode) return reply;
-  if (reply && !isBoringChaudhryReply(reply)) return reply;
-  return groupRoastFallback(text, userName, turnOpts);
+  if (!reply || !isBoringChaudhryReply(reply)) return reply;
+  return turnOpts.groupMode
+    ? groupRoastFallback(text, userName, turnOpts)
+    : dmBoringFallback(text, userName);
 }
 
 /**
@@ -219,17 +235,16 @@ function normalizeRomanUrdu(input) {
     .replace(/\ba rhe\b/g, "aa rahe")
     .replace(/\ba rhi\b/g, "aa rahi")
     .replace(/\bkr\b/g, "kar")
-    .replace(/\bkya\b/g, "kya")
     .replace(/\bkyu\b/g, "kyun")
-    .replace(/\bkyun\b/g, "kyun")
     .replace(/\bkese\b/g, "kaise")
     .replace(/\bkaisay\b/g, "kaise")
     .replace(/\bplz\b/g, "please")
     .replace(/\bpls\b/g, "please")
-    .replace(/\bwifi\b/g, "wifi")
     .replace(/\bwi-fi\b/g, "wifi")
     .replace(/\s+/g, " ")
     .trim();
+  // Note: removed the two no-op self-replacements ("kya"->"kya", "kyun"->"kyun")
+  // that existed in the original — they had no effect.
 }
 
 /**
@@ -304,7 +319,7 @@ Tum akele nahi. Scene share karo — main sununga (roast soft mode pe) 🫂`;
 
   // Greetings
   if (
-    /^(hi|hello|hey|salam|assalam|aoa|hola|yo|hola)\b/.test(text) ||
+    /^(hi|hello|hey|salam|assalam|aoa|hola|yo)\b/.test(text) ||
     hasAny(text, ["kaise ho", "kya haal", "kiya haal", "how are you"])
   ) {
     return `Oye ${name}! Chaudhry AI present 🫡 Bakchodi + useful jawab dono available.
@@ -347,7 +362,6 @@ Chaho to message draft likh ke dikhao, main polish + soft roast kar dunga 💚`;
       "study",
       "exam",
       "parhai",
-      "parhai",
       "assignment",
       "homework",
       "code",
@@ -366,7 +380,7 @@ Bug ko dushman samjho, phir roast karke fix karo 💻😂`;
   }
 
   // Sleep
-  if (hasAny(text, ["neend", "sleep", "insomni", "raat bhar", "can't sleep", "sone"] )) {
+  if (hasAny(text, ["neend", "sleep", "insomni", "raat bhar", "can't sleep", "sone"])) {
     return `${name}, neend nahi aa rahi?
 Phone blue light kam karo, kamra thanda/dark, caffeine band.
 Bed pe sirf soya karo — scroll kam. 10 minutes aankh band + slow breathing try karo.
@@ -399,7 +413,7 @@ Agli problem / bakchodi bhejo — inbox open hai.`;
   }
 
   // Bye
-  if (hasAny(text, ["bye", "allah hafiz", "allah hafiz", "good night", "goodnight", "gn", "chalta", "see you"])) {
+  if (hasAny(text, ["bye", "allah hafiz", "good night", "goodnight", "gn", "chalta", "see you"])) {
     return `Allah hafiz ${name}! Khayal rakhna.
 Phir aana — net, dil, code, sab handle hai 🌙`;
   }
@@ -490,32 +504,38 @@ export function isChaudhryMention(content) {
   return /(?:^|[\s([{])@(?:ai|chaudhry(?:_ai)?)\b/i.test(String(content || ""));
 }
 
-export function pickRandomGroupMember(members, { excludeIds = [], botId } = {}) {
-  const skip = new Set([...(excludeIds || []).map(String), botId ? String(botId) : ""].filter(Boolean));
-  const humans = (members || []).filter((m) => {
+/**
+ * Shared member-pool builder: excludes the bot and any explicitly
+ * excluded ids. Both picker functions below now share this instead
+ * of re-implementing the same filter logic twice.
+ */
+function buildEligibleMemberPool(members, { excludeIds = [], botId } = {}) {
+  const skip = new Set(
+    [...(excludeIds || []).map(String), botId ? String(botId) : ""].filter(Boolean)
+  );
+  const seen = new Set();
+  const pool = [];
+  for (const m of members || []) {
     const id = String(m._id || m);
-    if (skip.has(id)) return false;
-    if (m.isBot) return false;
-    if (m.username === CHAUDHRY.username) return false;
-    return true;
-  });
+    if (seen.has(id)) continue;
+    seen.add(id);
+    if (skip.has(id)) continue;
+    if (m.isBot) continue;
+    if (m.username === CHAUDHRY.username) continue;
+    pool.push(m);
+  }
+  return pool;
+}
+
+export function pickRandomGroupMember(members, { excludeIds = [], botId } = {}) {
+  const humans = buildEligibleMemberPool(members, { excludeIds, botId });
   if (!humans.length) return null;
   return humans[Math.floor(Math.random() * humans.length)];
 }
 
 /** Pick two different members for roast + sidekick banter */
 export function pickGroupRoastTargets(members, { botId, senderId } = {}) {
-  const skipSender = senderId ? [senderId] : [];
-  const pool = [];
-  const seen = new Set();
-  for (const m of members || []) {
-    const id = String(m._id || m);
-    if (seen.has(id)) continue;
-    seen.add(id);
-    if (m.isBot || m.username === CHAUDHRY.username) continue;
-    if (botId && id === String(botId)) continue;
-    pool.push(m);
-  }
+  const pool = buildEligibleMemberPool(members, { botId });
 
   // Prefer roasting someone other than sender
   let roastPool = pool.filter((m) => !senderId || String(m._id) !== String(senderId));
@@ -551,37 +571,55 @@ export async function getRecentGroupContext(groupId, botId, limit = 8) {
   });
 }
 
+/**
+ * Wrap a provider call so that ANY failure — non-OK response,
+ * network error, timeout, JSON parse error — resolves to `null`
+ * instead of throwing. This is what fixes the broken fallback
+ * chain: previously an uncaught throw from one provider skipped
+ * the remaining providers entirely.
+ */
+async function safeProviderCall(label, fn) {
+  try {
+    return await fn();
+  } catch (err) {
+    console.error(`${label} error:`, err?.message || err);
+    return null;
+  }
+}
+
 async function replyWithGroq(text, userName, history, turnOpts = {}) {
   const key = process.env.GROQ_API_KEY?.trim();
   if (!key) return null;
 
-  const messages = [
-    { role: "system", content: getSystemPrompt(turnOpts) },
-    ...history.filter((m) => m.content && m.content !== "[deleted]").slice(-8),
-    { role: "user", content: buildUserTurn(userName, text, turnOpts) },
-  ];
+  return safeProviderCall("Groq", async () => {
+    const messages = [
+      { role: "system", content: getSystemPrompt(turnOpts) },
+      ...history.filter((m) => m.content && m.content !== "[deleted]").slice(-8),
+      { role: "user", content: buildUserTurn(userName, text, turnOpts) },
+    ];
 
-  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: process.env.GROQ_MODEL || "llama-3.1-8b-instant",
-      temperature: getReplyTemperature(turnOpts),
-      max_tokens: turnOpts.groupMode ? 400 : 320,
-      messages,
-    }),
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: process.env.GROQ_MODEL || "llama-3.1-8b-instant",
+        temperature: getReplyTemperature(turnOpts),
+        max_tokens: turnOpts.groupMode ? 400 : 320,
+        messages,
+      }),
+    });
+
+    if (!res.ok) {
+      console.error("Groq error:", res.status, await res.text());
+      return null;
+    }
+
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content?.trim() || null;
   });
-
-  if (!res.ok) {
-    console.error("Groq error:", res.status, await res.text());
-    return null;
-  }
-
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content?.trim() || null;
 }
 
 async function replyWithGemini(text, userName, history, turnOpts = {}) {
@@ -590,41 +628,43 @@ async function replyWithGemini(text, userName, history, turnOpts = {}) {
     process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
   if (!key) return null;
 
-  const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
-  const contents = [];
+  return safeProviderCall("Gemini", async () => {
+    const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+    const contents = [];
 
-  for (const m of history.filter((h) => h.content && h.content !== "[deleted]").slice(-8)) {
-    contents.push({
-      role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: m.content }],
-    });
-  }
-  contents.push({ role: "user", parts: [{ text: buildUserTurn(userName, text, turnOpts) }] });
-
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: getSystemPrompt(turnOpts) }] },
-        contents,
-        generationConfig: {
-          temperature: getReplyTemperature(turnOpts),
-          maxOutputTokens: turnOpts.groupMode ? 400 : 320,
-        },
-      }),
+    for (const m of history.filter((h) => h.content && h.content !== "[deleted]").slice(-8)) {
+      contents.push({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }],
+      });
     }
-  );
+    contents.push({ role: "user", parts: [{ text: buildUserTurn(userName, text, turnOpts) }] });
 
-  if (!res.ok) {
-    console.error("Gemini error:", res.status, await res.text());
-    return null;
-  }
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: getSystemPrompt(turnOpts) }] },
+          contents,
+          generationConfig: {
+            temperature: getReplyTemperature(turnOpts),
+            maxOutputTokens: turnOpts.groupMode ? 400 : 320,
+          },
+        }),
+      }
+    );
 
-  const data = await res.json();
-  const reply = data.candidates?.[0]?.content?.parts?.map((p) => p.text).join("").trim();
-  return reply || null;
+    if (!res.ok) {
+      console.error("Gemini error:", res.status, await res.text());
+      return null;
+    }
+
+    const data = await res.json();
+    const reply = data.candidates?.[0]?.content?.parts?.map((p) => p.text).join("").trim();
+    return reply || null;
+  });
 }
 
 /**
@@ -634,46 +674,55 @@ async function replyWithGemini(text, userName, history, turnOpts = {}) {
 async function replyWithLlm7(text, userName, history, turnOpts = {}) {
   if (process.env.CHAUDHRY_DISABLE_LLM7 === "1") return null;
 
-  const model = process.env.LLM7_MODEL || (turnOpts.groupMode ? "fast" : "default");
-  const messages = [
-    { role: "system", content: getSystemPrompt(turnOpts) },
-    ...history.filter((m) => m.content && m.content !== "[deleted]").slice(-6),
-    { role: "user", content: buildUserTurn(userName, text, turnOpts) },
-  ];
+  return safeProviderCall("LLM7", async () => {
+    const model = process.env.LLM7_MODEL || (turnOpts.groupMode ? "fast" : "default");
+    const messages = [
+      { role: "system", content: getSystemPrompt(turnOpts) },
+      ...history.filter((m) => m.content && m.content !== "[deleted]").slice(-6),
+      { role: "user", content: buildUserTurn(userName, text, turnOpts) },
+    ];
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 20000);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 20000);
 
-  try {
-    const res = await fetch("https://api.llm7.io/v1/chat/completions", {
-      method: "POST",
-      signal: controller.signal,
-      headers: {
-        Authorization: "Bearer unused",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        temperature: getReplyTemperature(turnOpts),
-        max_tokens: turnOpts.groupMode ? 380 : 280,
-        messages,
-      }),
-    });
+    try {
+      const res = await fetch("https://api.llm7.io/v1/chat/completions", {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          // llm7.io is a keyless free endpoint; it still expects an
+          // Authorization header to be present, so a placeholder value
+          // is sent — there is no real credential here.
+          Authorization: "Bearer unused",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          temperature: getReplyTemperature(turnOpts),
+          max_tokens: turnOpts.groupMode ? 380 : 280,
+          messages,
+        }),
+      });
 
-    if (!res.ok) {
-      console.error("LLM7 error:", res.status, await res.text());
-      return null;
+      if (!res.ok) {
+        console.error("LLM7 error:", res.status, await res.text());
+        return null;
+      }
+
+      const data = await res.json();
+      return data.choices?.[0]?.message?.content?.trim() || null;
+    } finally {
+      clearTimeout(timer);
     }
-
-    const data = await res.json();
-    return data.choices?.[0]?.message?.content?.trim() || null;
-  } finally {
-    clearTimeout(timer);
-  }
+  });
 }
 
 /**
  * Generate reply — Groq / Gemini / free LLM7, else local answers.
+ * Each provider is now attempted independently: a thrown error in
+ * one no longer skips the remaining providers (previously they all
+ * shared one try/catch, so any throw fell straight through to the
+ * local fallback).
  */
 export async function generateChaudhryReply(userMessage, userName = "bhai", opts = {}) {
   const text = String(userMessage || "").trim();
@@ -698,23 +747,19 @@ export async function generateChaudhryReply(userMessage, userName = "bhai", opts
     sidekickName: opts.sidekickName,
   };
 
-  try {
-    const groqReply = await replyWithGroq(text, userName, history, turnOpts);
-    if (groqReply) return finalizeReply(groqReply, text, userName, turnOpts);
+  const groqReply = await replyWithGroq(text, userName, history, turnOpts);
+  if (groqReply) return finalizeReply(groqReply, text, userName, turnOpts);
 
-    const geminiReply = await replyWithGemini(text, userName, history, turnOpts);
-    if (geminiReply) return finalizeReply(geminiReply, text, userName, turnOpts);
+  const geminiReply = await replyWithGemini(text, userName, history, turnOpts);
+  if (geminiReply) return finalizeReply(geminiReply, text, userName, turnOpts);
 
-    const llm7Reply = await replyWithLlm7(text, userName, history, turnOpts);
-    if (llm7Reply) return finalizeReply(llm7Reply, text, userName, turnOpts);
-  } catch (err) {
-    console.error("Chaudhry LLM error:", err);
-  }
+  const llm7Reply = await replyWithLlm7(text, userName, history, turnOpts);
+  if (llm7Reply) return finalizeReply(llm7Reply, text, userName, turnOpts);
 
+  // All providers unavailable or returned nothing usable.
   if (turnOpts.groupMode) {
     return groupRoastFallback(text, userName, turnOpts);
   }
-
   return localContextualReply(text, userName);
 }
 
