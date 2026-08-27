@@ -2,6 +2,32 @@
 
 import { formatTime } from "./Avatar";
 
+function renderContent(content, isMine) {
+  const text = String(content || "");
+  const parts = text.split(/(@(?:ai|chaudhry(?:_ai)?)\b)/gi);
+  if (parts.length === 1) {
+    return text;
+  }
+
+  return parts.map((part, i) => {
+    if (/^@(?:ai|chaudhry(?:_ai)?)$/i.test(part)) {
+      return (
+        <span
+          key={i}
+          className={
+            isMine
+              ? "font-semibold text-sky-100 underline decoration-sky-200/80"
+              : "font-semibold text-sky-600 dark:text-sky-400"
+          }
+        >
+          {part}
+        </span>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
+
 /**
  * Single message bubble with hover "Delete for me"
  */
@@ -16,6 +42,11 @@ export default function MessageBubble({ message, isMine, onDelete }) {
         {!isMine && sender?.name && (
           <p className="text-[11px] text-sky-600 dark:text-sky-400 font-medium mb-0.5 ml-1">
             {sender.name}
+            {(sender.isBot || sender.username === "chaudhry_ai") && (
+              <span className="ml-1 text-[9px] uppercase tracking-wide text-amber-600 dark:text-amber-400">
+                bot
+              </span>
+            )}
           </p>
         )}
 
@@ -31,7 +62,9 @@ export default function MessageBubble({ message, isMine, onDelete }) {
               This message was deleted
             </p>
           ) : (
-            <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+            <p className="text-sm whitespace-pre-wrap break-words">
+              {renderContent(message.content, isMine)}
+            </p>
           )}
 
           <div

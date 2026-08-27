@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import Message from "@/lib/models/Message";
 import Group from "@/lib/models/Group";
+import User from "@/lib/models/User";
 import { requireAuth } from "@/lib/auth";
 import { sendPushToUsers } from "@/lib/push";
 import {
@@ -9,6 +10,9 @@ import {
   ensureChaudhryContact,
   generateChaudhryReply,
   getRecentChatContext,
+  getRecentGroupContext,
+  isChaudhryMention,
+  pickRandomGroupMember,
 } from "@/lib/chaudhry";
 
 export async function POST(request) {
@@ -43,26 +47,23 @@ export async function POST(request) {
       readBy: [auth.user._id],
     });
 
-    message = await message.populate("senderId", "name username avatar");
+    message = await message.populate("senderId", "name username avatar isBot");
 
-    // Chrome / web push to human recipients
     const preview =
       content.trim().length > 80 ? `${content.trim().slice(0, 80)}…` : content.trim();
     const senderName = message.senderId?.name || "Someone";
+
+    const bot = await ensureChaudhryBot();
+    const botId = bot._id.toString();
 
     let recipientIds = [];
     if (groupId && group) {
       recipientIds = group.members
         .map((m) => m.toString())
-        .filter((id) => id !== auth.user._id.toString());
+        .filter((id) => id !== auth.user._id.toString() && id !== botId);
     } else if (receiverId) {
-      recipientIds = [receiverId];
+      recipientIds = [receiverId].filter((id) => id !== botId);
     }
-
-    // Skip push to bot account
-    const bot = await ensureChaudhryBot();
-    const botId = bot._id.toString();
-    recipientIds = recipientIds.filter((id) => id !== botId);
 
     if (recipientIds.length) {
       sendPushToUsers(recipientIds, {
@@ -73,8 +74,9 @@ export async function POST(request) {
       }).catch((err) => console.error("Push notify error:", err));
     }
 
-    // Chaudhry AI bakchod auto-reply (DM only) — on-topic + funny
     let botMessage = null;
+
+    // DM to Chaudhry
     if (!groupId && receiverId && String(receiverId) === botId) {
       await ensureChaudhryContact(auth.user._id);
       const history = await getRecentChatContext(auth.user._id, bot._id, 8);
@@ -89,13 +91,61 @@ export async function POST(request) {
         status: "sent",
         readBy: [bot._id],
       });
-      botMessage = await botMessage.populate("senderId", "name username avatar");
+      botMessage = await botMessage.populate("senderId", "name username avatar isBot");
 
       sendPushToUsers([auth.user._id.toString()], {
         title: "Chaudhry AI",
         body: replyText.length > 80 ? `${replyText.slice(0, 80)}…` : replyText,
         url: "/chat",
         tag: `dm-${botId}`,
+      }).catch(() => {});
+    }
+
+    // Group: @ai / @chaudhry when bot is a member
+    if (
+      groupId &&
+      group &&
+      isChaudhryMention(content) &&
+      group.members.some((m) => m.toString() === botId)
+    ) {
+      const memberDocs = await User.find({ _id: { $in: group.members } })
+        .select("name username isBot")
+        .lean();
+
+      const randomMember = pickRandomGroupMember(memberDocs, {
+        excludeIds: [auth.user._id],
+        botId,
+      });
+
+      const history = await getRecentGroupContext(groupId, bot._id, 8);
+      const replyText = await generateChaudhryReply(content.trim(), auth.user.name, {
+        history,
+        groupMode: true,
+        groupName: group.name,
+        memberNames: memberDocs
+          .filter((m) => !m.isBot && m.username !== "chaudhry_ai")
+          .map((m) => m.name),
+        randomMemberName: randomMember?.name || null,
+      });
+
+      botMessage = await Message.create({
+        senderId: bot._id,
+        receiverId: null,
+        groupId,
+        content: replyText,
+        status: "sent",
+        readBy: [bot._id],
+      });
+      botMessage = await botMessage.populate("senderId", "name username avatar isBot");
+
+      const groupNotify = group.members
+        .map((m) => m.toString())
+        .filter((id) => id !== botId);
+      sendPushToUsers(groupNotify, {
+        title: `Chaudhry AI in ${group.name}`,
+        body: replyText.length > 80 ? `${replyText.slice(0, 80)}…` : replyText,
+        url: "/chat",
+        tag: `group-${groupId}`,
       }).catch(() => {});
     }
 

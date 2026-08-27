@@ -56,6 +56,7 @@ export const groupsApi = {
       method: "POST",
       body: JSON.stringify({ memberId }),
     }),
+  addChaudhry: (id) => api(`/api/groups/${id}/add-chaudhry`, { method: "POST" }),
   removeMember: (id, memberId) =>
     api(`/api/groups/${id}/remove-member`, {
       method: "POST",

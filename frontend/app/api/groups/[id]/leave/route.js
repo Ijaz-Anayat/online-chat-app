@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import Group from "@/lib/models/Group";
+import User from "@/lib/models/User";
 import { requireAuth } from "@/lib/auth";
+import { CHAUDHRY } from "@/lib/chaudhry";
+
+const MEMBER_FIELDS = "name username email avatar isBot";
 
 export async function POST(request, { params }) {
   const auth = await requireAuth();
@@ -21,7 +25,12 @@ export async function POST(request, { params }) {
     group.members = group.members.filter((m) => m.toString() !== auth.user._id.toString());
 
     if (group.admin.toString() === auth.user._id.toString() && group.members.length > 0) {
-      group.admin = group.members[0];
+      const remaining = await User.find({ _id: { $in: group.members } })
+        .select("username isBot")
+        .lean();
+      const human =
+        remaining.find((u) => !u.isBot && u.username !== CHAUDHRY.username) || remaining[0];
+      group.admin = human?._id || group.members[0];
     }
 
     if (group.members.length === 0) {
@@ -32,8 +41,8 @@ export async function POST(request, { params }) {
     await group.save();
 
     const populated = await Group.findById(group._id)
-      .populate("members", "name username email avatar")
-      .populate("admin", "name username email avatar");
+      .populate("members", MEMBER_FIELDS)
+      .populate("admin", MEMBER_FIELDS);
 
     return NextResponse.json({ message: "You left the group.", group: populated });
   } catch (error) {

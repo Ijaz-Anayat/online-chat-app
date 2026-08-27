@@ -79,6 +79,17 @@ export default function ChatWindow({
     }
   };
 
+  const hasChaudhry =
+    chat.type === "group" &&
+    (chat.members || []).some((m) => m?.isBot || m?.username === "chaudhry_ai");
+
+  const placeholder =
+    chat.type === "group" && hasChaudhry
+      ? "Message… or @ai for Chaudhry"
+      : chat.isBot
+        ? "Bakchodi shuru karo…"
+        : "Type a message…";
+
   return (
     <div className="flex flex-col flex-1 h-full min-w-0 bg-sky-50/40 dark:bg-slate-900/60">
       {/* Chat header */}
@@ -98,10 +109,10 @@ export default function ChatWindow({
           <p className="font-semibold text-slate-800 dark:text-slate-100 truncate">{chat.name}</p>
           <p className="text-xs text-slate-400 dark:text-slate-500 truncate">
             {chat.type === "group"
-              ? `${chat.members?.length || "…"} members`
+              ? `${chat.members?.length || "…"} members${hasChaudhry ? " · @ai ready" : ""}`
               : chat.isBot
-              ? "Fun & bakchodi mode 24/7"
-              : `@${chat.username || ""}`}
+                ? "Fun & bakchodi mode 24/7"
+                : `@${chat.username || ""}`}
           </p>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
@@ -133,6 +144,7 @@ export default function ChatWindow({
         ) : messages.length === 0 ? (
           <p className="text-center text-slate-400 text-sm py-16">
             No messages yet. Say hello!
+            {hasChaudhry ? " Tag @ai to wake Chaudhry." : ""}
           </p>
         ) : (
           messages.map((m) => {
@@ -159,7 +171,7 @@ export default function ChatWindow({
         <input
           ref={inputRef}
           className="input-field flex-1"
-          placeholder="Type a message…"
+          placeholder={placeholder}
           value={text}
           onChange={(e) => setText(e.target.value)}
           maxLength={2000}

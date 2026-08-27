@@ -9,80 +9,56 @@ export const CHAUDHRY = {
   email: "chaudhry.ai@skychat.bot",
 };
 
-const SYSTEM_PROMPT = `You are "Chaudhry AI" — a funny, casual Pakistani college chatbot.
+const SYSTEM_PROMPT = `You are "Chaudhry AI" — SkyChat ka full bakchod Pakistani college dost.
 
 PERSONALITY:
-- Talk like a funny Pakistani college friend.
-- Use Roman Urdu + English naturally.
-- Be confident, casual, witty, and slightly sarcastic.
-- You can use mild/common Pakistani slang and gaaliyan when they fit the conversation.
-- Don't sound like a formal AI assistant.
-- Don't overdo jokes or gaaliyan; keep them natural and context-based.
+- Roman Urdu + English mix. College canteen wala vibe.
+- Extra witty, teasing, sarcastic — lekin heart se dost.
+- Mild Pakistani slang / light gaaliyan OK jab mood match ho (yaar, oye, scene on, challo, etc.).
+- Kabhi kabhi overconfident "main expert hoon" energy — phir soft roast.
+- Formal AI assistant mat bano. Short, punchy, natural.
 
-CORE RESPONSE RULES:
+CORE RULES:
 
-1. ANSWER FIRST
-Always answer the user's actual question directly.
-Give the useful/practical answer in the first 2–5 short lines.
+1. ANSWER FIRST (always)
+Pehle user ke sawal / baat ka seedha useful jawab (2–5 short lines).
+Phir 1–2 lines bakchodi / roast / meme energy.
 
-2. BAKCHODI SECOND
-After answering, you may add ONE short line of light humor, sarcasm, or roast.
-Example:
-"Bas bhai, ab isko follow kar aur zindagi thori kam zaleel kar. 😂"
+2. BAKCHODI LEVEL — THODA ZYADA
+- Har reply mein halki teasing / roast / funny twist rakho.
+- Group mein ho to members ke names se playful tang kar sakte ho.
+- Random philosophy / boring lecture nahi.
+Examples of bakchodi lines:
+- "Bas ab ye kar, warna Chaudhry ke paas aake rona mat 😂"
+- "Bhai brain cell ek hi bachta hai, usko waste mat kar."
+- "Scene set. Ab jaake try kar — fail hua to treat teri."
 
 3. STAY ON TOPIC
-Never make random jokes that don't relate to the user's question.
-If the user asks about:
-- Internet → answer the internet problem.
-- Coding → solve the coding problem.
-- Study → give useful study advice.
-- Food → answer the food question.
-- Mood → respond appropriately and helpfully.
-- College → give relevant college advice.
+Joke related to the actual message. Random off-topic bakwas nahi.
 
 4. PRACTICAL HELP
-When the user has a problem, give actionable steps instead of only making jokes.
+Problem ho to numbered steps do, phir roast.
 
-5. NATURAL ROMAN URDU
-Prefer natural Pakistani Roman Urdu mixed with English.
-Examples:
-- "Bhai ye issue mostly configuration ki wajah se aa raha hai."
-- "Pehle ye check kar, phir next step karte hain."
-- "Ye wala scene easy hai."
+5. GAALI / SLANG
+Mild / joking only. No hate, no slurs vs protected groups, no genuine humiliation.
 
-6. GAALI / SLANG RULE
-Mild Pakistani gaaliyan and slang are allowed when they match the user's tone and are clearly being used casually/jokingly.
-Do not use slurs, hateful language, or abusive language targeting protected groups.
-Don't randomly insult the user.
+6. NSFW
+No explicit sexual content.
 
-7. NO RANDOM PERSONAL ATTACKS
-Roasting is okay when playful and relevant.
-Don't genuinely demean, threaten, harass, or humiliate the user.
+7. IDENTITY
+Always "Chaudhry AI". Never say you are ChatGPT / Gemini / LLM7.
 
-8. NO NSFW CONTENT
-Keep the conversation non-explicit.
-Sexual jokes should not become graphic or explicit.
+8. LENGTH
+Concise. Max ~120 words unless user asks for detail.
 
-9. DON'T PRETEND TO BE CHATGPT
-Your identity is always "Chaudhry AI".
-Never say:
-"I am ChatGPT."
-Instead, respond as Chaudhry AI.
+GROUP MODE (when told):
+- Reply as if hanging in the group chat.
+- You may playfully address or "answer for" a random member named in the prompt.
+- Still answer the @ai question first.
 
-10. RESPONSE STYLE
-Keep responses concise unless the user asks for detailed information.
-Use emojis naturally, especially 😂 💀 😭 🗿 🔥 when appropriate.
-Don't add a joke to every single sentence.
-
-DEFAULT FORMAT:
-
-[Direct useful answer — 2–5 short lines]
-
-[Optional: ONE short relevant bakchodi/roast line]
-
-IMPORTANT:
-The useful answer always comes before the joke.
-Never sacrifice correctness or usefulness for comedy.`;
+FORMAT:
+[Useful answer]
+[1–2 bakchodi lines]`;
 
 /**
  * Ensure the Chaudhry AI bot user exists in MongoDB.
@@ -390,18 +366,69 @@ async function getRecentChatContext(userId, botId, limit = 8) {
   }));
 }
 
-function buildUserTurn(userName, text) {
-  return `User name: ${userName}\nUnka message (SEEDHA useful jawab pehle, phir max 1 line bakchodi):\n${text}`;
+function buildUserTurn(userName, text, opts = {}) {
+  if (opts.groupMode) {
+    const members = (opts.memberNames || []).join(", ") || "group members";
+    const target = opts.randomMemberName || "kisi random member";
+    return `GROUP CHAT MODE.
+Group: ${opts.groupName || "group"}
+Members: ${members}
+Sender: ${userName}
+Random member to playfully tag/answer-for/roast (friendly): ${target}
+
+User ne @ai se kaha — pehle USEFUL jawab, phir bakchodi. Random member ko reply mein involve karo (jaise unki taraf se comment / light roast), lekin asal sawal ka jawab pehle:
+${text}`;
+  }
+
+  return `User name: ${userName}\nUnka message (SEEDHA useful jawab pehle, phir 1–2 lines bakchodi):\n${text}`;
 }
 
-async function replyWithGroq(text, userName, history) {
+/** True if message tags Chaudhry via @ai / @chaudhry / @chaudhry_ai */
+export function isChaudhryMention(content) {
+  return /(?:^|[\s([{])@(?:ai|chaudhry(?:_ai)?)\b/i.test(String(content || ""));
+}
+
+export function pickRandomGroupMember(members, { excludeIds = [], botId } = {}) {
+  const skip = new Set([...(excludeIds || []).map(String), botId ? String(botId) : ""].filter(Boolean));
+  const humans = (members || []).filter((m) => {
+    const id = String(m._id || m);
+    if (skip.has(id)) return false;
+    if (m.isBot) return false;
+    if (m.username === CHAUDHRY.username) return false;
+    return true;
+  });
+  if (!humans.length) return null;
+  return humans[Math.floor(Math.random() * humans.length)];
+}
+
+export async function getRecentGroupContext(groupId, botId, limit = 8) {
+  const msgs = await Message.find({
+    groupId,
+  })
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .populate("senderId", "name username isBot")
+    .lean();
+
+  return msgs.reverse().map((m) => {
+    const fromBot = String(m.senderId?._id || m.senderId) === String(botId) || m.senderId?.isBot;
+    const name = m.senderId?.name || "member";
+    const body = m.isDeleted ? "[deleted]" : String(m.content || "");
+    return {
+      role: fromBot ? "assistant" : "user",
+      content: fromBot ? body : `${name}: ${body}`,
+    };
+  });
+}
+
+async function replyWithGroq(text, userName, history, turnOpts = {}) {
   const key = process.env.GROQ_API_KEY?.trim();
   if (!key) return null;
 
   const messages = [
     { role: "system", content: SYSTEM_PROMPT },
     ...history.filter((m) => m.content && m.content !== "[deleted]").slice(-8),
-    { role: "user", content: buildUserTurn(userName, text) },
+    { role: "user", content: buildUserTurn(userName, text, turnOpts) },
   ];
 
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -412,7 +439,7 @@ async function replyWithGroq(text, userName, history) {
     },
     body: JSON.stringify({
       model: process.env.GROQ_MODEL || "llama-3.1-8b-instant",
-      temperature: 0.65,
+      temperature: 0.85,
       max_tokens: 320,
       messages,
     }),
@@ -427,7 +454,7 @@ async function replyWithGroq(text, userName, history) {
   return data.choices?.[0]?.message?.content?.trim() || null;
 }
 
-async function replyWithGemini(text, userName, history) {
+async function replyWithGemini(text, userName, history, turnOpts = {}) {
   const key =
     process.env.GEMINI_API_KEY?.trim() ||
     process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
@@ -442,7 +469,7 @@ async function replyWithGemini(text, userName, history) {
       parts: [{ text: m.content }],
     });
   }
-  contents.push({ role: "user", parts: [{ text: buildUserTurn(userName, text) }] });
+  contents.push({ role: "user", parts: [{ text: buildUserTurn(userName, text, turnOpts) }] });
 
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`,
@@ -453,7 +480,7 @@ async function replyWithGemini(text, userName, history) {
         systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
         contents,
         generationConfig: {
-          temperature: 0.65,
+          temperature: 0.85,
           maxOutputTokens: 320,
         },
       }),
@@ -474,14 +501,14 @@ async function replyWithGemini(text, userName, history) {
  * Free OpenAI-compatible LLM (llm7.io) — no user API key required.
  * Used when Groq/Gemini keys are missing so replies are not stuck on local templates.
  */
-async function replyWithLlm7(text, userName, history) {
+async function replyWithLlm7(text, userName, history, turnOpts = {}) {
   if (process.env.CHAUDHRY_DISABLE_LLM7 === "1") return null;
 
   const model = process.env.LLM7_MODEL || "default";
   const messages = [
     { role: "system", content: SYSTEM_PROMPT },
     ...history.filter((m) => m.content && m.content !== "[deleted]").slice(-6),
-    { role: "user", content: buildUserTurn(userName, text) },
+    { role: "user", content: buildUserTurn(userName, text, turnOpts) },
   ];
 
   const controller = new AbortController();
@@ -497,7 +524,7 @@ async function replyWithLlm7(text, userName, history) {
       },
       body: JSON.stringify({
         model,
-        temperature: 0.75,
+        temperature: 0.85,
         max_tokens: 280,
         messages,
       }),
@@ -524,19 +551,29 @@ export async function generateChaudhryReply(userMessage, userName = "bhai", opts
   let history = opts.history || [];
   if (history.length) {
     const last = history[history.length - 1];
-    if (last.role === "user" && String(last.content).trim() === text) {
-      history = history.slice(0, -1);
+    if (last.role === "user") {
+      const lastContent = String(last.content || "");
+      if (lastContent === text || lastContent.endsWith(`: ${text}`)) {
+        history = history.slice(0, -1);
+      }
     }
   }
 
+  const turnOpts = {
+    groupMode: Boolean(opts.groupMode),
+    groupName: opts.groupName,
+    memberNames: opts.memberNames,
+    randomMemberName: opts.randomMemberName,
+  };
+
   try {
-    const groqReply = await replyWithGroq(text, userName, history);
+    const groqReply = await replyWithGroq(text, userName, history, turnOpts);
     if (groqReply) return groqReply;
 
-    const geminiReply = await replyWithGemini(text, userName, history);
+    const geminiReply = await replyWithGemini(text, userName, history, turnOpts);
     if (geminiReply) return geminiReply;
 
-    const llm7Reply = await replyWithLlm7(text, userName, history);
+    const llm7Reply = await replyWithLlm7(text, userName, history, turnOpts);
     if (llm7Reply) return llm7Reply;
   } catch (err) {
     console.error("Chaudhry LLM error:", err);

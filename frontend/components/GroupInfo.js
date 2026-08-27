@@ -53,6 +53,23 @@ export default function GroupInfo({ groupId, currentUser, onUpdated, onLeft, onC
   }, [search, group]);
 
   const isAdmin = group?.admin?._id === currentUser?._id;
+  const hasChaudhry = (group?.members || []).some(
+    (m) => m.isBot || m.username === "chaudhry_ai"
+  );
+
+  const handleAddChaudhry = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const data = await groupsApi.addChaudhry(groupId);
+      setGroup(data.group);
+      onUpdated?.(data.group);
+    } catch (err) {
+      setError(err.message || "Failed to add Chaudhry AI");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const handleAdd = async (memberId) => {
     setBusy(true);
@@ -242,6 +259,21 @@ export default function GroupInfo({ groupId, currentUser, onUpdated, onLeft, onC
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">
             Add member
           </p>
+          {!hasChaudhry && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={handleAddChaudhry}
+              className="w-full mb-3 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 py-2.5 text-sm font-medium hover:bg-amber-100 dark:hover:bg-amber-900/50 transition"
+            >
+              Add Chaudhry AI · tag @ai in chat
+            </button>
+          )}
+          {hasChaudhry && (
+            <p className="mb-3 text-xs text-slate-500 dark:text-slate-400 rounded-lg bg-sky-50 dark:bg-slate-800 px-3 py-2">
+              Chaudhry AI is in this group — type <span className="font-semibold text-sky-600 dark:text-sky-400">@ai</span> to talk.
+            </p>
+          )}
           <input
             className="input-field mb-2"
             placeholder="Search users to add…"
@@ -270,6 +302,12 @@ export default function GroupInfo({ groupId, currentUser, onUpdated, onLeft, onC
         </div>
       )}
 
+      {!isAdmin && hasChaudhry && (
+        <p className="mx-4 mt-3 text-xs text-slate-500 dark:text-slate-400 rounded-lg bg-sky-50 dark:bg-slate-800 px-3 py-2">
+          Chaudhry AI is here — type <span className="font-semibold text-sky-600 dark:text-sky-400">@ai</span> to talk.
+        </p>
+      )}
+
       <div className="flex-1 overflow-y-auto custom-scroll px-4 py-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">
           Members
@@ -288,6 +326,11 @@ export default function GroupInfo({ groupId, currentUser, onUpdated, onLeft, onC
                 </p>
                 <p className="text-xs text-slate-500">@{m.username}</p>
               </div>
+              {(m.isBot || m.username === "chaudhry_ai") && (
+                <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 px-2 py-0.5 rounded">
+                  Bot
+                </span>
+              )}
               {group.admin?._id === m._id && (
                 <span className="text-[10px] font-semibold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-slate-700 px-2 py-0.5 rounded">
                   Admin

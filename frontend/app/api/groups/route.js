@@ -12,8 +12,8 @@ export async function GET() {
     await connectDB();
     const userId = auth.user._id;
     const groups = await Group.find({ members: userId })
-      .populate("members", "name username email avatar")
-      .populate("admin", "name username email avatar")
+      .populate("members", "name username email avatar isBot")
+      .populate("admin", "name username email avatar isBot")
       .sort({ updatedAt: -1 });
 
     const list = await Promise.all(

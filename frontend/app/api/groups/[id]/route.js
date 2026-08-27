@@ -10,8 +10,8 @@ export async function GET(request, { params }) {
   try {
     await connectDB();
     const group = await Group.findById(params.id)
-      .populate("members", "name username email avatar")
-      .populate("admin", "name username email avatar");
+      .populate("members", "name username email avatar isBot")
+      .populate("admin", "name username email avatar isBot");
 
     if (!group) {
       return NextResponse.json({ message: "Group not found." }, { status: 404 });
@@ -71,8 +71,8 @@ export async function PATCH(request, { params }) {
     await group.save();
 
     const populated = await Group.findById(group._id)
-      .populate("members", "name username email avatar")
-      .populate("admin", "name username email avatar");
+      .populate("members", "name username email avatar isBot")
+      .populate("admin", "name username email avatar isBot");
 
     return NextResponse.json({ message: "Group updated.", group: populated });
   } catch (error) {

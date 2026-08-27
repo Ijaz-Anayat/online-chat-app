@@ -27,8 +27,8 @@ export async function POST(request) {
     });
 
     const populated = await Group.findById(group._id)
-      .populate("members", "name username email avatar")
-      .populate("admin", "name username email avatar");
+      .populate("members", "name username email avatar isBot")
+      .populate("admin", "name username email avatar isBot");
 
     return NextResponse.json({ message: "Group created.", group: populated }, { status: 201 });
   } catch (error) {

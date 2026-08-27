@@ -35,7 +35,7 @@ export async function GET(request, { params }) {
     filter.deletedFor = { $ne: auth.user._id };
 
     const messages = await Message.find(filter)
-      .populate("senderId", "name username avatar")
+      .populate("senderId", "name username avatar isBot")
       .sort({ createdAt: 1 })
       .limit(500);
 
