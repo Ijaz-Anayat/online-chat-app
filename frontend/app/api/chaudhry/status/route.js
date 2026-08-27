@@ -8,7 +8,7 @@ export async function GET() {
     smart: provider !== "local",
     hint:
       provider === "local"
-        ? "Add GROQ_API_KEY or GEMINI_API_KEY for real AI replies."
+        ? "Add GROQ_API_KEY or GEMINI_API_KEY, or enable LLM7 free fallback."
         : `Using ${provider} for Chaudhry replies.`,
   });
 }

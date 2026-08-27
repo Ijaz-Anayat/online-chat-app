@@ -471,7 +471,52 @@ async function replyWithGemini(text, userName, history) {
 }
 
 /**
- * Generate reply — Groq / Gemini if key set, else smart local answers.
+ * Free OpenAI-compatible LLM (llm7.io) — no user API key required.
+ * Used when Groq/Gemini keys are missing so replies are not stuck on local templates.
+ */
+async function replyWithLlm7(text, userName, history) {
+  if (process.env.CHAUDHRY_DISABLE_LLM7 === "1") return null;
+
+  const model = process.env.LLM7_MODEL || "default";
+  const messages = [
+    { role: "system", content: SYSTEM_PROMPT },
+    ...history.filter((m) => m.content && m.content !== "[deleted]").slice(-6),
+    { role: "user", content: buildUserTurn(userName, text) },
+  ];
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20000);
+
+  try {
+    const res = await fetch("https://api.llm7.io/v1/chat/completions", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        Authorization: "Bearer unused",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        temperature: 0.75,
+        max_tokens: 280,
+        messages,
+      }),
+    });
+
+    if (!res.ok) {
+      console.error("LLM7 error:", res.status, await res.text());
+      return null;
+    }
+
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content?.trim() || null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Generate reply — Groq / Gemini / free LLM7, else local answers.
  */
 export async function generateChaudhryReply(userMessage, userName = "bhai", opts = {}) {
   const text = String(userMessage || "").trim();
@@ -490,6 +535,9 @@ export async function generateChaudhryReply(userMessage, userName = "bhai", opts
 
     const geminiReply = await replyWithGemini(text, userName, history);
     if (geminiReply) return geminiReply;
+
+    const llm7Reply = await replyWithLlm7(text, userName, history);
+    if (llm7Reply) return llm7Reply;
   } catch (err) {
     console.error("Chaudhry LLM error:", err);
   }
@@ -503,6 +551,7 @@ export function getChaudhryProvider() {
   if (process.env.GEMINI_API_KEY?.trim() || process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim()) {
     return "gemini";
   }
+  if (process.env.CHAUDHRY_DISABLE_LLM7 !== "1") return "llm7";
   return "local";
 }
 
