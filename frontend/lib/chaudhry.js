@@ -60,6 +60,97 @@ FORMAT:
 [Useful answer]
 [1–2 bakchodi lines]`;
 
+const GROUP_SYSTEM_PROMPT = `You are "Chaudhry AI" — SkyChat group ka sab se zyada bakchod member.
+
+GROUP CHAT RULES (STRICT):
+1. NEVER repeat the user's message back ("sun liya", "tumhari baat", etc.) — FORBIDDEN.
+2. NEVER ask "batao clear goal" or generic clarification — jawab do, roast karo, done.
+3. NEVER sound like a customer support bot or formal AI.
+
+PERSONALITY:
+- Full desi group-chat energy: Roman Urdu + English, tharki-halki comedy, sarcasm, roasts.
+- Creative, unpredictable, meme-worthy lines — har reply alag feel ho.
+- Mild Pakistani slang OK (oye, yaar, scene, uff, pagal, zaleel, etc.) — playful only.
+- Emojis use karo: 😂 💀 🗿 🔥 😭
+
+MANDATORY REPLY STRUCTURE:
+[2-4 lines: useful/helpful answer to what they asked @ai]
+[2-4 lines: CREATIVE roast — MUST name the "roast target" member given in the prompt]
+[Optional 1 line: funny side comment tagging the "sidekick" member OR pretending they said something]
+
+ROAST RULES:
+- Roast target ka NAAM zaroor likho (@name style optional).
+- Roast specific & creative ho — generic "haha funny" nahi.
+- Examples of GOOD roasts:
+  • "Oye {name}, tu group mein itna silent rehta hai ke lagta hai mute pe paid subscription hai 😂"
+  • "{name} bhai dimagh mein loading icon ghoom raha hai shayad — tabhi @ai bulaya {sender} ne 💀"
+  • "{name} ko lagta hai net slow hai — asal mein unki typing speed 2G pe stuck hai 🗿"
+- Roast the QUESTION ASKER lightly too if fun fits — but main roast = target member.
+- Still be a friend — no real cruelty, no hate, no slurs.
+
+LENGTH: 4-8 short lines total. Punchy. Group chat readable.`;
+
+function getSystemPrompt(turnOpts = {}) {
+  return turnOpts.groupMode ? GROUP_SYSTEM_PROMPT : SYSTEM_PROMPT;
+}
+
+function getReplyTemperature(turnOpts = {}) {
+  return turnOpts.groupMode ? 0.98 : 0.85;
+}
+
+function isBoringChaudhryReply(reply) {
+  const r = String(reply || "").toLowerCase();
+  if (!r || r.length < 35) return true;
+  const boring =
+    /sun liya|batao clear goal|jitna clear sawal|problem fix\?|advice chahiye|sirf baat|seedha scene|thora clear likho|main usi pe numbered|half info pe half/i;
+  return boring.test(r);
+}
+
+/** Strip @ai tag from message for cleaner processing */
+function stripAiMention(text) {
+  return String(text || "")
+    .replace(/@(?:ai|chaudhry(?:_ai)?)\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Creative group roast fallback when LLM is too generic */
+function groupRoastFallback(text, userName, opts = {}) {
+  const clean = stripAiMention(text) || text;
+  const useful = localContextualReply(clean, userName);
+  const sender = firstName(userName);
+  const roastTarget = opts.roastTargetName || opts.randomMemberName || "yaar";
+  const sidekick = opts.sidekickName;
+
+  const roasts = [
+    `Oye ${roastTarget} — tu itna chup kyun rehta hai group mein? Keyboard kharab hai ya attitude? 😂`,
+    `${roastTarget} bhai, ${sender} ne @ai bulaya hai — tu ab tak "..." pe stuck hai kya? 💀`,
+    `Group PSA: ${roastTarget} ki soch abhi bhi loading pe hai. ${sender} ne sahi @ai tag kiya 🔥`,
+    `${roastTarget}, agar dimagh mein bhi WiFi hota to shayad reply bhi aa jata — ab Chaudhry handle karega 🗿`,
+    `Scene ye hai ke ${sender} serious hai aur ${roastTarget} abhi bhi last week's meme dekh raha hai 😭`,
+    `${roastTarget} ko lagta hai group chat WhatsApp status hai — sirf dekhna hai, likhna nahi 😂`,
+    `Breaking: ${roastTarget} ne socha group mein sirf ghost mode on rehna hai — Chaudhry ne pakar liya 👻`,
+  ];
+
+  const sideLines = sidekick && sidekick !== roastTarget
+    ? [
+        `\n\nSide note: ${sidekick} keh raha tha "${sender} phir se @ai bulayega" — sahi pakda tha usne 😂`,
+        `\n\n${sidekick} ne whisper kiya: "${roastTarget} ko roast mat karo" — ab zyada hoga roast 💀`,
+        `\n\n${sidekick} bhi kehta hai: is group mein ${roastTarget} aur Chaudhry hi kaam ke hain 🗿`,
+      ]
+    : [""];
+
+  const roast = roasts[Math.floor(Math.random() * roasts.length)];
+  const side = sideLines[Math.floor(Math.random() * sideLines.length)];
+  return `${useful}\n\n${roast}${side}`;
+}
+
+function finalizeReply(reply, text, userName, turnOpts) {
+  if (!turnOpts.groupMode) return reply;
+  if (reply && !isBoringChaudhryReply(reply)) return reply;
+  return groupRoastFallback(text, userName, turnOpts);
+}
+
 /**
  * Ensure the Chaudhry AI bot user exists in MongoDB.
  */
@@ -369,15 +460,26 @@ async function getRecentChatContext(userId, botId, limit = 8) {
 function buildUserTurn(userName, text, opts = {}) {
   if (opts.groupMode) {
     const members = (opts.memberNames || []).join(", ") || "group members";
-    const target = opts.randomMemberName || "kisi random member";
-    return `GROUP CHAT MODE.
-Group: ${opts.groupName || "group"}
-Members: ${members}
-Sender: ${userName}
-Random member to playfully tag/answer-for/roast (friendly): ${target}
+    const roastTarget = opts.roastTargetName || opts.randomMemberName || "ek random member";
+    const sidekick = opts.sidekickName || "koi aur member";
+    const clean = stripAiMention(text) || text;
+    const sender = firstName(userName);
 
-User ne @ai se kaha — pehle USEFUL jawab, phir bakchodi. Random member ko reply mein involve karo (jaise unki taraf se comment / light roast), lekin asal sawal ka jawab pehle:
-${text}`;
+    return `GROUP CHAT — ${opts.groupName || "group"}
+
+Members: ${members}
+Sender (@ai tag kiya): ${userName} (${sender})
+ROAST TARGET ( naam zaroor lo, creative roast karo ): ${roastTarget}
+SIDEKICK ( optional funny mention ): ${sidekick}
+
+User message: "${clean}"
+
+ZAROORI:
+- User ka message repeat mat karo
+- Generic template mat do
+- Pehle useful jawab, phir ${roastTarget} ko CREATIVE roast (naam ke sath)
+- ${sidekick} ko ek chhoti funny line mein involve kar sakte ho
+- Roman Urdu group chat style — full bakchodi mode ON 🔥`;
   }
 
   return `User name: ${userName}\nUnka message (SEEDHA useful jawab pehle, phir 1–2 lines bakchodi):\n${text}`;
@@ -399,6 +501,34 @@ export function pickRandomGroupMember(members, { excludeIds = [], botId } = {}) 
   });
   if (!humans.length) return null;
   return humans[Math.floor(Math.random() * humans.length)];
+}
+
+/** Pick two different members for roast + sidekick banter */
+export function pickGroupRoastTargets(members, { botId, senderId } = {}) {
+  const skipSender = senderId ? [senderId] : [];
+  const pool = [];
+  const seen = new Set();
+  for (const m of members || []) {
+    const id = String(m._id || m);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    if (m.isBot || m.username === CHAUDHRY.username) continue;
+    if (botId && id === String(botId)) continue;
+    pool.push(m);
+  }
+
+  // Prefer roasting someone other than sender
+  let roastPool = pool.filter((m) => !senderId || String(m._id) !== String(senderId));
+  if (!roastPool.length) roastPool = pool;
+  if (!roastPool.length) return { roastTarget: null, sidekick: null };
+
+  const roastTarget = roastPool[Math.floor(Math.random() * roastPool.length)];
+  const others = pool.filter((m) => String(m._id) !== String(roastTarget._id));
+  const sidekick = others.length
+    ? others[Math.floor(Math.random() * others.length)]
+    : null;
+
+  return { roastTarget, sidekick };
 }
 
 export async function getRecentGroupContext(groupId, botId, limit = 8) {
@@ -426,7 +556,7 @@ async function replyWithGroq(text, userName, history, turnOpts = {}) {
   if (!key) return null;
 
   const messages = [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: getSystemPrompt(turnOpts) },
     ...history.filter((m) => m.content && m.content !== "[deleted]").slice(-8),
     { role: "user", content: buildUserTurn(userName, text, turnOpts) },
   ];
@@ -439,8 +569,8 @@ async function replyWithGroq(text, userName, history, turnOpts = {}) {
     },
     body: JSON.stringify({
       model: process.env.GROQ_MODEL || "llama-3.1-8b-instant",
-      temperature: 0.85,
-      max_tokens: 320,
+      temperature: getReplyTemperature(turnOpts),
+      max_tokens: turnOpts.groupMode ? 400 : 320,
       messages,
     }),
   });
@@ -477,11 +607,11 @@ async function replyWithGemini(text, userName, history, turnOpts = {}) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+        systemInstruction: { parts: [{ text: getSystemPrompt(turnOpts) }] },
         contents,
         generationConfig: {
-          temperature: 0.85,
-          maxOutputTokens: 320,
+          temperature: getReplyTemperature(turnOpts),
+          maxOutputTokens: turnOpts.groupMode ? 400 : 320,
         },
       }),
     }
@@ -504,9 +634,9 @@ async function replyWithGemini(text, userName, history, turnOpts = {}) {
 async function replyWithLlm7(text, userName, history, turnOpts = {}) {
   if (process.env.CHAUDHRY_DISABLE_LLM7 === "1") return null;
 
-  const model = process.env.LLM7_MODEL || "default";
+  const model = process.env.LLM7_MODEL || (turnOpts.groupMode ? "fast" : "default");
   const messages = [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: getSystemPrompt(turnOpts) },
     ...history.filter((m) => m.content && m.content !== "[deleted]").slice(-6),
     { role: "user", content: buildUserTurn(userName, text, turnOpts) },
   ];
@@ -524,8 +654,8 @@ async function replyWithLlm7(text, userName, history, turnOpts = {}) {
       },
       body: JSON.stringify({
         model,
-        temperature: 0.85,
-        max_tokens: 280,
+        temperature: getReplyTemperature(turnOpts),
+        max_tokens: turnOpts.groupMode ? 380 : 280,
         messages,
       }),
     });
@@ -564,19 +694,25 @@ export async function generateChaudhryReply(userMessage, userName = "bhai", opts
     groupName: opts.groupName,
     memberNames: opts.memberNames,
     randomMemberName: opts.randomMemberName,
+    roastTargetName: opts.roastTargetName,
+    sidekickName: opts.sidekickName,
   };
 
   try {
     const groqReply = await replyWithGroq(text, userName, history, turnOpts);
-    if (groqReply) return groqReply;
+    if (groqReply) return finalizeReply(groqReply, text, userName, turnOpts);
 
     const geminiReply = await replyWithGemini(text, userName, history, turnOpts);
-    if (geminiReply) return geminiReply;
+    if (geminiReply) return finalizeReply(geminiReply, text, userName, turnOpts);
 
     const llm7Reply = await replyWithLlm7(text, userName, history, turnOpts);
-    if (llm7Reply) return llm7Reply;
+    if (llm7Reply) return finalizeReply(llm7Reply, text, userName, turnOpts);
   } catch (err) {
     console.error("Chaudhry LLM error:", err);
+  }
+
+  if (turnOpts.groupMode) {
+    return groupRoastFallback(text, userName, turnOpts);
   }
 
   return localContextualReply(text, userName);

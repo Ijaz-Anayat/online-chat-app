@@ -12,7 +12,7 @@ import {
   getRecentChatContext,
   getRecentGroupContext,
   isChaudhryMention,
-  pickRandomGroupMember,
+  pickGroupRoastTargets,
 } from "@/lib/chaudhry";
 
 export async function POST(request) {
@@ -112,9 +112,9 @@ export async function POST(request) {
         .select("name username isBot")
         .lean();
 
-      const randomMember = pickRandomGroupMember(memberDocs, {
-        excludeIds: [auth.user._id],
+      const { roastTarget, sidekick } = pickGroupRoastTargets(memberDocs, {
         botId,
+        senderId: auth.user._id,
       });
 
       const history = await getRecentGroupContext(groupId, bot._id, 8);
@@ -125,7 +125,9 @@ export async function POST(request) {
         memberNames: memberDocs
           .filter((m) => !m.isBot && m.username !== "chaudhry_ai")
           .map((m) => m.name),
-        randomMemberName: randomMember?.name || null,
+        randomMemberName: roastTarget?.name || null,
+        roastTargetName: roastTarget?.name || null,
+        sidekickName: sidekick?.name || null,
       });
 
       botMessage = await Message.create({
